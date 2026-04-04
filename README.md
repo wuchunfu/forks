@@ -122,9 +122,54 @@ fclone http://<server-ip>:8080/git/github/torvalds/linux.git my-linux
 
 克隆完成后 remote 配置：
 - `origin` → `https://github.com/author/repo.git`（原始仓库，支持 push/pull）
-- `mirror` → `http://<server-ip>:8080/git/...`（镜像加速，仅 fetch）
 
 ## Docker 部署
+
+### 使用预构建镜像（推荐）
+
+```bash
+docker pull ghcr.io/cicbyte/forks:latest
+```
+
+```bash
+# 运行（默认端口 8080）
+docker run -d \
+  -p 8080:8080 \
+  -e TZ=Asia/Shanghai \
+  -v ./data:/data \
+  ghcr.io/cicbyte/forks:latest
+
+# 自定义端口
+docker run -d \
+  -p 9090:9090 \
+  -e FORKS_PORT=9090 \
+  -e TZ=Asia/Shanghai \
+  -v ./data:/data \
+  ghcr.io/cicbyte/forks:latest
+```
+
+使用 `docker-compose.yml` 部署：
+
+```yaml
+services:
+  forks:
+    image: ghcr.io/cicbyte/forks:latest
+    container_name: forks
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - TZ=Asia/Shanghai
+      - FORKS_HOME=/data
+      - FORKS_PORT=8083
+    volumes:
+      - ./data:/data
+```
+
+```bash
+docker compose up -d
+```
+
+### 自行构建
 
 ```bash
 # 构建镜像
@@ -134,13 +179,6 @@ docker build -t forks .
 docker run -d \
   -p 8080:8080 \
   -e TZ=Asia/Shanghai \
-  -v ./data:/data \
-  forks
-
-# 自定义端口
-docker run -d \
-  -p 9090:9090 \
-  -e FORKS_PORT=9090 \
   -v ./data:/data \
   forks
 
