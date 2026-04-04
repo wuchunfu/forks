@@ -1,0 +1,314 @@
+/**
+ * Forks Animation System
+ * Spark (交互魔术师) - Chromatic Team
+ *
+ * 版本: 1.0.0
+ * 创建: 2025-02-20
+ */
+
+/* ============================================
+   1. EASING FUNCTIONS - 缓动函数库
+   ============================================ */
+
+:root {
+  /* 标准缓动 - 适用于大多数场景 */
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in-smooth: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out-smooth: cubic-bezier(0, 0, 0.2, 1);
+
+  /* 弹性效果 - 适合微交互 */
+  --ease-bounce-smooth: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-bounce-subtle: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  
+  /* 快速响应 - 适合按钮、开关 */
+  --ease-snappy: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-quick: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ============================================
+   2. DURATION TOKENS - 时长规范
+   ============================================ */
+
+:root {
+  --duration-instant: 50ms;
+  --duration-immediate: 75ms;
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-medium: 300ms;
+  --duration-slow: 400ms;
+  --duration-slower: 500ms;
+  --duration-page: 400ms;
+}
+
+/* ============================================
+   3. TRANSITION PRESETS - 过渡预设
+   ============================================ */
+
+:root {
+  --transition-color-fast: color var(--duration-fast) var(--ease-smooth),
+                           background-color var(--duration-fast) var(--ease-smooth),
+                           border-color var(--duration-fast) var(--ease-smooth);
+
+  --transition-color-base: color var(--duration-base) var(--ease-smooth),
+                           background-color var(--duration-base) var(--ease-smooth),
+                           border-color var(--duration-base) var(--ease-smooth);
+
+  --transition-shadow: box-shadow var(--duration-medium) var(--ease-smooth);
+  --transition-transform-base: transform var(--duration-base) var(--ease-smooth);
+  --transition-transform-medium: transform var(--duration-medium) var(--ease-smooth);
+  --transition-opacity: opacity var(--duration-medium) var(--ease-smooth);
+  --transition-hover: var(--transition-color-base),
+                      var(--transition-shadow),
+                      var(--transition-transform-base);
+  --transition-modal: opacity var(--duration-medium) var(--ease-smooth),
+                      transform var(--duration-medium) var(--ease-bounce-smooth);
+  --transition-sidebar: width var(--duration-medium) var(--ease-smooth);
+}
+
+/* ============================================
+   4. KEYFRAME ANIMATIONS
+   ============================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes scaleInBounce {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+/* ============================================
+   5. UTILITY CLASSES - 工具类
+   ============================================ */
+
+.animate-fade-in {
+  animation: fadeIn var(--duration-medium) var(--ease-smooth);
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp var(--duration-medium) var(--ease-smooth);
+}
+
+.animate-scale-in {
+  animation: scaleIn var(--duration-fast) var(--ease-smooth);
+}
+
+.animate-scale-in-bounce {
+  animation: scaleInBounce var(--duration-medium) var(--ease-bounce-smooth);
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-pulse {
+  animation: pulse 2s var(--ease-smooth) infinite;
+}
+
+.animate-shake {
+  animation: shake 0.5s var(--ease-smooth);
+}
+
+.hover-lift {
+  transition: var(--transition-hover);
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.hover-scale {
+  transition: var(--transition-transform-base);
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+.active-press:active {
+  transform: scale(0.97);
+  transition: transform var(--duration-fast) var(--ease-smooth);
+}
+
+/* ============================================
+   6. COMPONENT ANIMATIONS
+   ============================================ */
+
+/* Sidebar */
+.sidebar {
+  transition: width var(--duration-medium) var(--ease-smooth);
+}
+
+.sidebar-item {
+  position: relative;
+  transition: var(--transition-color-base);
+  overflow: hidden;
+}
+
+.sidebar-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--color-primary-600);
+  transform: scaleY(0);
+  transition: transform var(--duration-base) var(--ease-smooth);
+}
+
+.sidebar-item:hover::before {
+  transform: scaleY(1);
+}
+
+.sidebar-item:hover {
+  background: rgba(37, 99, 235, 0.08);
+}
+
+/* Cards */
+.card-hover {
+  transition: var(--transition-hover);
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+/* Buttons */
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+  transition: var(--transition-hover);
+}
+
+/* Modal */
+.modal-enter-active {
+  animation: scaleInBounce var(--duration-medium) var(--ease-bounce-smooth);
+}
+
+.modal-leave-active {
+  animation: fadeOut var(--duration-base) var(--ease-smooth);
+}
+
+/* Page Transitions */
+.page-enter-active {
+  animation: fadeInUp var(--duration-page) var(--ease-smooth);
+}
+
+.page-leave-active {
+  animation: fadeOut var(--duration-slow) var(--ease-smooth);
+}
+
+/* Skeleton */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e0e0e0 50%,
+    #f0f0f0 75%
+  );
+  background-size: 200px 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* ============================================
+   7. REDUCED MOTION
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================
+   8. STAGGER ANIMATIONS
+   ============================================ */
+
+.stagger-enter-active > * {
+  animation: fadeInUp var(--duration-base) var(--ease-smooth) both;
+}
+
+.stagger-enter-active > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-enter-active > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-enter-active > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-enter-active > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-enter-active > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-enter-active > *:nth-child(6) { animation-delay: 250ms; }

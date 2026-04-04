@@ -1,0 +1,231 @@
+/**
+ * Forks Dark Theme
+ * Grid Design System - Chromatic Team
+ *
+ * 暗色主题
+ * 版本: 1.0.0
+ */
+
+/* ============================================
+   DARK THEME COLOR OVERRIDES
+   ============================================ */
+
+:root[data-theme="dark"] {
+  /* ----- 主题标识 ----- */
+  --theme-mode: 'dark';
+
+  /* ----- 品牌色 (暗色模式调整) ----- */
+  --color-primary-50: #172554;
+  --color-primary-100: #1e3a8a;
+  --color-primary-200: #1e40af;
+  --color-primary-300: #1d4ed8;
+  --color-primary-400: #2563eb;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #60a5fa;
+  --color-primary-700: #93c5fd;
+  --color-primary-800: #bfdbfe;
+  --color-primary-900: #dbeafe;
+
+  --color-primary: var(--color-primary-500);
+  --color-primary-hover: var(--color-primary-400);
+  --color-primary-active: var(--color-primary-300);
+  --color-primary-light: var(--color-primary-600);
+  --color-primary-lighter: var(--color-primary-900);
+
+  /* ----- 语义色 (暗色模式调整) ----- */
+  --color-success-500: #10b981;
+  --color-success-600: #34d399;
+  --color-success-bg: #064e3b;
+  --color-success-bg-hover: #065f46;
+
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #fbbf24;
+  --color-warning-bg: #78350f;
+  --color-warning-bg-hover: #92400e;
+
+  --color-error-500: #ef4444;
+  --color-error-600: #f87171;
+  --color-error-bg: #7f1d1d;
+  --color-error-bg-hover: #991b1b;
+
+  --color-info-500: #0ea5e9;
+  --color-info-600: #38bdf8;
+  --color-info-bg: #0c4a6e;
+  --color-info-bg-hover: #075985;
+
+  /* ----- 中性色 (暗色模式) ----- */
+  --color-gray-50: #030712;
+  --color-gray-100: #111827;
+  --color-gray-200: #1f2937;
+  --color-gray-300: #374151;
+  --color-gray-400: #4b5563;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #9ca3af;
+  --color-gray-700: #d1d5db;
+  --color-gray-800: #e5e7eb;
+  --color-gray-900: #f3f4f6;
+  --color-gray-950: #f9fafb;
+
+  /* ----- 背景色系统 ----- */
+  --color-bg-body: #030712;
+  --color-bg-page: #111827;
+  --color-bg-surface: #1f2937;
+  --color-bg-surface-elevated: #374151;
+  --color-bg-surface-pressed: #4b5563;
+  --color-bg-overlay: rgba(0, 0, 0, 0.65);
+  --color-bg-modal: rgba(0, 0, 0, 0.75);
+
+  /* ----- 侧边栏 ----- */
+  --color-bg-sidebar: #111827;
+  --color-bg-sidebar-hover: #1f2937;
+  --color-bg-sidebar-active: #1e3a8a;
+  --color-sidebar-text: var(--color-gray-300);
+  --color-sidebar-text-active: var(--color-primary-500);
+  --color-sidebar-border: var(--color-gray-700);
+
+  /* ----- 导航栏 ----- */
+  --color-bg-navbar: #111827;
+  --color-bg-navbar-scrolled: rgba(17, 24, 39, 0.9);
+  --color-navbar-border: var(--color-gray-700);
+
+  /* ----- 文本色 ----- */
+  --color-text-primary: #f9fafb;
+  --color-text-secondary: #d1d5db;
+  --color-text-tertiary: #9ca3af;
+  --color-text-quaternary: #6b7280;
+  --color-text-disabled: #4b5563;
+  --color-text-inverse: #111827;
+
+  /* ----- 边框色 ----- */
+  --color-border: #374151;
+  --color-border-strong: #4b5563;
+  --color-border-subtle: #1f2937;
+
+  /* ----- 代码块 ----- */
+  --color-code-bg: #1a1a2e;
+  --color-code-header: #16213e;
+  --color-code-border: #2d3748;
+  --color-code-selection: rgba(59, 130, 246, 0.25);
+
+  /* ----- 滚动条 ----- */
+  --color-scrollbar-track: #1f2937;
+  --color-scrollbar-thumb: #4b5563;
+  --color-scrollbar-thumb-hover: #6b7280;
+
+  /* ----- 卡片 ----- */
+  --color-card-bg: #1f2937;
+  --color-card-border: #374151;
+  --color-card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.5);
+  --color-card-shadow-hover: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+
+  /* ----- 表格 ----- */
+  --color-table-header-bg: #1f2937;
+  --color-table-row-hover-bg: #374151;
+  --color-table-stripe-bg: #111827;
+  --color-table-border: #374151;
+
+  /* ----- 输入框 ----- */
+  --color-input-bg: #1f2937;
+  --color-input-border: #4b5563;
+  --color-input-border-hover: #6b7280;
+  --color-input-border-focus: var(--color-primary-500);
+  --color-input-placeholder: #6b7280;
+  --color-input-disabled-bg: #111827;
+  --color-input-disabled-border: #374151;
+
+  /* ----- 按钮 ----- */
+  --color-btn-primary-bg: var(--color-primary-600);
+  --color-btn-primary-bg-hover: var(--color-primary-500);
+  --color-btn-primary-text: #ffffff;
+  --color-btn-primary-border: transparent;
+
+  --color-btn-secondary-bg: #1f2937;
+  --color-btn-secondary-bg-hover: #374151;
+  --color-btn-secondary-text: var(--color-gray-200);
+  --color-btn-secondary-border: #4b5563;
+
+  --color-btn-ghost-bg: transparent;
+  --color-btn-ghost-bg-hover: #374151;
+  --color-btn-ghost-text: var(--color-gray-300);
+  --color-btn-ghost-border: transparent;
+
+  /* ----- 徽章 ----- */
+  --color-badge-primary-bg: #1e3a8a;
+  --color-badge-primary-text: #93c5fd;
+  --color-badge-success-bg: #064e3b;
+  --color-badge-success-text: #6ee7b7;
+  --color-badge-warning-bg: #78350f;
+  --color-badge-warning-text: #fcd34d;
+  --color-badge-error-bg: #7f1d1d;
+  --color-badge-error-text: #fca5a5;
+
+  /* ----- 提示框 ----- */
+  --color-tooltip-bg: #f3f4f6;
+  --color-tooltip-text: #111827;
+
+  /* ----- 下拉菜单 ----- */
+  --color-dropdown-bg: #1f2937;
+  --color-dropdown-border: #374151;
+  --color-dropdown-item-hover: #374151;
+  --color-dropdown-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+
+  /* ----- 模态框 ----- */
+  --color-modal-bg: #1f2937;
+  --color-modal-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.75);
+
+  /* ----- 分割线 ----- */
+  --color-divider: #374151;
+  --color-divider-strong: #4b5563;
+
+  /* ----- 链接 ----- */
+  --color-link: var(--color-primary-500);
+  --color-link-hover: var(--color-primary-400);
+  --color-link-active: var(--color-primary-300);
+}
+
+/* ============================================
+   DARK THEME SPECIFIC STYLES
+   ============================================ */
+
+/* 暗色模式滚动条样式 */
+:root[data-theme="dark"] ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+:root[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: var(--color-scrollbar-track);
+  border-radius: var(--radius-full);
+}
+
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: var(--color-scrollbar-thumb);
+  border-radius: var(--radius-full);
+  transition: background var(--transition-fast);
+}
+
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-scrollbar-thumb-hover);
+}
+
+/* 暗色模式选中文本样式 */
+:root[data-theme="dark"] ::selection {
+  background-color: var(--color-code-selection);
+  color: inherit;
+}
+
+/* 暗色模式焦点样式 */
+:root[data-theme="dark"] :focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
+
+/* 暗色模式特殊效果 */
+:root[data-theme="dark"] img {
+  filter: brightness(0.95);
+}
+
+:root[data-theme="dark"] .glass-effect {
+  background: rgba(31, 41, 55, 0.8);
+  backdrop-filter: blur(12px);
+}

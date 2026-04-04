@@ -1,0 +1,169 @@
+/**
+ * Forks Light Theme
+ * Grid Design System - Chromatic Team
+ *
+ * 亮色主题 - 默认主题
+ * 版本: 1.0.0
+ */
+
+/* ============================================
+   LIGHT THEME COLOR OVERRIDES
+   ============================================ */
+
+:root {
+  /* ----- 主题标识 ----- */
+  --theme-mode: 'light';
+
+  /* ----- 背景色系统 ----- */
+  --color-bg-body: #f9fafb;
+  --color-bg-page: #ffffff;
+  --color-bg-surface: #ffffff;
+  --color-bg-surface-elevated: #ffffff;
+  --color-bg-surface-pressed: #f3f4f6;
+  --color-bg-overlay: rgba(0, 0, 0, 0.45);
+  --color-bg-modal: rgba(0, 0, 0, 0.55);
+
+  /* ----- 侧边栏 ----- */
+  --color-bg-sidebar: #ffffff;
+  --color-bg-sidebar-hover: #f3f4f6;
+  --color-bg-sidebar-active: #eff6ff;
+  --color-sidebar-text: var(--color-gray-700);
+  --color-sidebar-text-active: var(--color-primary);
+  --color-sidebar-border: var(--color-gray-200);
+
+  /* ----- 导航栏 ----- */
+  --color-bg-navbar: #ffffff;
+  --color-bg-navbar-scrolled: rgba(255, 255, 255, 0.9);
+  --color-navbar-border: var(--color-gray-200);
+
+  /* ----- 文本色 ----- */
+  --color-text-primary: #111827;
+  --color-text-secondary: #6b7280;
+  --color-text-tertiary: #9ca3af;
+  --color-text-quaternary: #d1d5db;
+  --color-text-disabled: #e5e7eb;
+  --color-text-inverse: #ffffff;
+
+  /* ----- 边框色 ----- */
+  --color-border: #e5e7eb;
+  --color-border-strong: #d1d5db;
+  --color-border-subtle: #f3f4f6;
+
+  /* ----- 代码块 ----- */
+  --color-code-bg: #f8fafc;
+  --color-code-header: #f1f5f9;
+  --color-code-border: #e2e8f0;
+  --color-code-selection: rgba(37, 99, 235, 0.15);
+
+  /* ----- 滚动条 ----- */
+  --color-scrollbar-track: #f3f4f6;
+  --color-scrollbar-thumb: #d1d5db;
+  --color-scrollbar-thumb-hover: #9ca3af;
+
+  /* ----- 卡片 ----- */
+  --color-card-bg: #ffffff;
+  --color-card-border: #e5e7eb;
+  --color-card-shadow: var(--shadow-sm);
+  --color-card-shadow-hover: var(--shadow-md);
+
+  /* ----- 表格 ----- */
+  --color-table-header-bg: #f9fafb;
+  --color-table-row-hover-bg: #f3f4f6;
+  --color-table-stripe-bg: #f9fafb;
+  --color-table-border: #e5e7eb;
+
+  /* ----- 输入框 ----- */
+  --color-input-bg: #ffffff;
+  --color-input-border: #d1d5db;
+  --color-input-border-hover: #9ca3af;
+  --color-input-border-focus: var(--color-primary);
+  --color-input-placeholder: #9ca3af;
+  --color-input-disabled-bg: #f3f4f6;
+  --color-input-disabled-border: #e5e7eb;
+
+  /* ----- 按钮 ----- */
+  --color-btn-primary-bg: var(--color-primary-600);
+  --color-btn-primary-bg-hover: var(--color-primary-700);
+  --color-btn-primary-text: #ffffff;
+  --color-btn-primary-border: transparent;
+
+  --color-btn-secondary-bg: #ffffff;
+  --color-btn-secondary-bg-hover: #f3f4f6;
+  --color-btn-secondary-text: var(--color-gray-700);
+  --color-btn-secondary-border: #d1d5db;
+
+  --color-btn-ghost-bg: transparent;
+  --color-btn-ghost-bg-hover: #f3f4f6;
+  --color-btn-ghost-text: var(--color-gray-700);
+  --color-btn-ghost-border: transparent;
+
+  /* ----- 徽章 ----- */
+  --color-badge-primary-bg: var(--color-primary-50);
+  --color-badge-primary-text: var(--color-primary-700);
+  --color-badge-success-bg: var(--color-success-50);
+  --color-badge-success-text: var(--color-success-700);
+  --color-badge-warning-bg: var(--color-warning-50);
+  --color-badge-warning-text: var(--color-warning-700);
+  --color-badge-error-bg: var(--color-error-50);
+  --color-badge-error-text: var(--color-error-700);
+
+  /* ----- 提示框 ----- */
+  --color-tooltip-bg: #1f2937;
+  --color-tooltip-text: #ffffff;
+
+  /* ----- 下拉菜单 ----- */
+  --color-dropdown-bg: #ffffff;
+  --color-dropdown-border: #e5e7eb;
+  --color-dropdown-item-hover: #f3f4f6;
+  --color-dropdown-shadow: var(--shadow-lg);
+
+  /* ----- 模态框 ----- */
+  --color-modal-bg: #ffffff;
+  --color-modal-shadow: var(--shadow-2xl);
+
+  /* ----- 分割线 ----- */
+  --color-divider: #e5e7eb;
+  --color-divider-strong: #d1d5db;
+
+  /* ----- 链接 ----- */
+  --color-link: var(--color-primary-600);
+  --color-link-hover: var(--color-primary-700);
+  --color-link-active: var(--color-primary-800);
+}
+
+/* ============================================
+   LIGHT THEME SPECIFIC STYLES
+   ============================================ */
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-scrollbar-track);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-scrollbar-thumb);
+  border-radius: var(--radius-full);
+  transition: background var(--transition-fast);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-scrollbar-thumb-hover);
+}
+
+/* 选中文本样式 */
+::selection {
+  background-color: var(--color-code-selection);
+  color: inherit;
+}
+
+/* 焦点样式 */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}

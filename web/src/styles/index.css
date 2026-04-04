@@ -1,0 +1,433 @@
+/**
+ * Forks Design System - Main Entry
+ * Grid Design System - Chromatic Team
+ *
+ * 主入口文件 - 按顺序导入所有样式
+ * 版本: 1.0.0
+ */
+
+/* ============================================
+   1. DESIGN TOKENS - 设计变量
+   ============================================ */
+@import './variables.css';
+
+/* ============================================
+   2. THEME - 主题
+   ============================================ */
+@import './theme-light.css';
+@import './theme-dark.css';
+/* ============================================
+   2.5 ANIMATIONS - 动画系统
+   ============================================
+*/
+@import './animations.css';
+
+
+/* ============================================
+   3. BASE STYLES - 基础样式
+   ============================================ */
+
+/* 重置和基础样式 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overflow-y: scroll;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-body);
+  transition: background-color var(--transition-base),
+              color var(--transition-base);
+}
+
+/* ============================================
+   4. UTILITY CLASSES - 工具类
+   ============================================ */
+
+/* 布局工具 */
+.container {
+  width: 100%;
+  max-width: var(--container-xl);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--space-4);
+  padding-right: var(--space-4);
+}
+
+.container-sm {
+  max-width: var(--container-sm);
+}
+
+.container-md {
+  max-width: var(--container-md);
+}
+
+.container-lg {
+  max-width: var(--container-lg);
+}
+
+.container-xl {
+  max-width: var(--container-xl);
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-1 { gap: var(--space-1); }
+.gap-2 { gap: var(--space-2); }
+.gap-3 { gap: var(--space-3); }
+.gap-4 { gap: var(--space-4); }
+.gap-6 { gap: var(--space-6); }
+.gap-8 { gap: var(--space-8); }
+
+/* 间距工具 */
+.p-1 { padding: var(--space-1); }
+.p-2 { padding: var(--space-2); }
+.p-3 { padding: var(--space-3); }
+.p-4 { padding: var(--space-4); }
+.p-6 { padding: var(--space-6); }
+.p-8 { padding: var(--space-8); }
+
+.px-1 { padding-left: var(--space-1); padding-right: var(--space-1); }
+.px-2 { padding-left: var(--space-2); padding-right: var(--space-2); }
+.px-3 { padding-left: var(--space-3); padding-right: var(--space-3); }
+.px-4 { padding-left: var(--space-4); padding-right: var(--space-4); }
+.px-6 { padding-left: var(--space-6); padding-right: var(--space-6); }
+
+.py-1 { padding-top: var(--space-1); padding-bottom: var(--space-1); }
+.py-2 { padding-top: var(--space-2); padding-bottom: var(--space-2); }
+.py-3 { padding-top: var(--space-3); padding-bottom: var(--space-3); }
+.py-4 { padding-top: var(--space-4); padding-bottom: var(--space-4); }
+.py-6 { padding-top: var(--space-6); padding-bottom: var(--space-6); }
+
+.m-1 { margin: var(--space-1); }
+.m-2 { margin: var(--space-2); }
+.m-3 { margin: var(--space-3); }
+.m-4 { margin: var(--space-4); }
+.m-6 { margin: var(--space-6); }
+
+.mx-auto { margin-left: auto; margin-right: auto; }
+
+/* 文本工具 */
+.text-xs { font-size: var(--text-xs); }
+.text-sm { font-size: var(--text-sm); }
+.text-base { font-size: var(--text-base); }
+.text-lg { font-size: var(--text-lg); }
+.text-xl { font-size: var(--text-xl); }
+.text-2xl { font-size: var(--text-2xl); }
+
+.font-normal { font-weight: var(--font-normal); }
+.font-medium { font-weight: var(--font-medium); }
+.font-semibold { font-weight: var(--font-semibold); }
+.font-bold { font-weight: var(--font-bold); }
+
+.text-primary { color: var(--color-text-primary); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-tertiary { color: var(--color-text-tertiary); }
+
+/* 颜色工具 */
+.text-success { color: var(--color-success); }
+.text-warning { color: var(--color-warning); }
+.text-error { color: var(--color-error); }
+.text-info { color: var(--color-info); }
+
+/* 圆角工具 */
+.rounded-none { border-radius: var(--radius-none); }
+.rounded-sm { border-radius: var(--radius-sm); }
+.rounded { border-radius: var(--radius-md); }
+.rounded-lg { border-radius: var(--radius-lg); }
+.rounded-xl { border-radius: var(--radius-xl); }
+.rounded-full { border-radius: var(--radius-full); }
+
+/* 阴影工具 */
+.shadow-sm { box-shadow: var(--shadow-sm); }
+.shadow { box-shadow: var(--shadow-md); }
+.shadow-lg { box-shadow: var(--shadow-lg); }
+.shadow-xl { box-shadow: var(--shadow-xl); }
+
+/* 过渡工具 */
+.transition {
+  transition: var(--transition-all);
+}
+
+.transition-colors {
+  transition: var(--transition-colors);
+}
+
+/* ============================================
+   5. COMPONENT BASE STYLES - 组件基础
+   ============================================ */
+
+/* 卡片 */
+.card {
+  background-color: var(--color-card-bg);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--color-card-shadow);
+  padding: var(--card-padding);
+  transition: box-shadow var(--transition-base),
+              border-color var(--transition-base);
+}
+
+.card:hover {
+  box-shadow: var(--color-card-shadow-hover);
+}
+
+/* 按钮 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--btn-padding-x-md) var(--btn-padding-x-md);
+  font-size: var(--text-sm);
+  font-weight: var(--btn-font-weight);
+  line-height: 1;
+  border-radius: var(--btn-radius);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: var(--transition-colors),
+              var(--transition-shadow),
+              var(--transition-transform);
+  user-select: none;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: var(--color-btn-primary-bg);
+  color: var(--color-btn-primary-text);
+  border-color: var(--color-btn-primary-border);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-btn-primary-bg-hover);
+}
+
+.btn-secondary {
+  background-color: var(--color-btn-secondary-bg);
+  color: var(--color-btn-secondary-text);
+  border-color: var(--color-btn-secondary-border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--color-btn-secondary-bg-hover);
+}
+
+.btn-ghost {
+  background-color: var(--color-btn-ghost-bg);
+  color: var(--color-btn-ghost-text);
+  border-color: var(--color-btn-ghost-border);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background-color: var(--color-btn-ghost-bg-hover);
+}
+
+/* 输入框 */
+.input {
+  width: 100%;
+  height: var(--input-height-md);
+  padding: 0 var(--input-padding-x);
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+  background-color: var(--color-input-bg);
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--input-radius);
+  transition: var(--transition-colors),
+              var(--transition-shadow);
+}
+
+.input::placeholder {
+  color: var(--color-input-placeholder);
+}
+
+.input:hover {
+  border-color: var(--color-input-border-hover);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-input-border-focus);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.input:disabled {
+  background-color: var(--color-input-disabled-bg);
+  border-color: var(--color-input-disabled-border);
+  color: var(--color-text-tertiary);
+  cursor: not-allowed;
+}
+
+/* 徽章 */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--badge-padding-x) var(--space-3);
+  font-size: var(--badge-font-size);
+  font-weight: var(--badge-font-weight);
+  border-radius: var(--badge-radius);
+  line-height: 1;
+}
+
+.badge-primary {
+  background-color: var(--color-badge-primary-bg);
+  color: var(--color-badge-primary-text);
+}
+
+.badge-success {
+  background-color: var(--color-badge-success-bg);
+  color: var(--color-badge-success-text);
+}
+
+.badge-warning {
+  background-color: var(--color-badge-warning-bg);
+  color: var(--color-badge-warning-text);
+}
+
+.badge-error {
+  background-color: var(--color-badge-error-bg);
+  color: var(--color-badge-error-text);
+}
+
+/* 分割线 */
+.divider {
+  width: 100%;
+  height: var(--divider-thickness);
+  background-color: var(--color-divider);
+  border: none;
+  margin: var(--divider-margin);
+}
+
+/* ============================================
+   6. RESPONSIVE - 响应式
+   ============================================ */
+
+@media (max-width: 1280px) {
+  .container {
+    max-width: var(--container-lg);
+  }
+}
+
+@media (max-width: 1024px) {
+  .container {
+    max-width: var(--container-md);
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    max-width: var(--container-sm);
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
+  }
+}
+
+/* ============================================
+   7. ANIMATIONS - 动画
+   ============================================ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn var(--duration-300) var(--ease-out);
+}
+
+.animate-slideUp {
+  animation: slideUp var(--duration-300) var(--ease-out);
+}
+
+.animate-slideDown {
+  animation: slideDown var(--duration-300) var(--ease-out);
+}
+
+.animate-scaleIn {
+  animation: scaleIn var(--duration-200) var(--ease-out);
+}
+
+.animate-spin {
+  animation: spin 1s var(--ease-linear) infinite;
+}

@@ -1,0 +1,23 @@
+version: "3.8"
+services:
+  forks:
+    image: forks:latest
+    container_name: forks
+    restart: unless-stopped
+    # 注意：host 模式下 ports 配置会被忽略，建议删除或注释
+    ports:
+      - "8083:8083"
+    # network_mode: host
+    environment:
+      - TZ=Asia/Shanghai
+      - FORKS_HOME=/data
+      - FORKS_PORT=8083
+    volumes:
+      - ./data:/data
+    networks:
+      - forks-network
+
+networks:
+  forks-network:
+    driver: bridge
+    name: forks-network

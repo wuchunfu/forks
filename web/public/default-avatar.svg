@@ -1,0 +1,24 @@
+<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景圆形 -->
+  <circle cx="20" cy="20" r="20" fill="#4CAF50"/>
+  
+  <!-- 用户头像轮廓 -->
+  <circle cx="20" cy="15" r="7" fill="white"/>
+  <path 
+    d="M6 35 Q6 25 20 25 Q34 25 34 35 Q34 40 20 40 Q6 40 6 35 Z" 
+    fill="white"
+  />
+  
+  <!-- GitPlus标识 -->
+  <g transform="translate(20, 8)">
+    <circle cx="0" cy="0" r="3.5" fill="white" opacity="0.9"/>
+    <text 
+      x="0" y="1.5" 
+      text-anchor="middle" 
+      fill="#4CAF50" 
+      font-size="4" 
+      font-weight="bold"
+      font-family="monospace"
+    >G+</text>
+  </g>
+</svg>
