@@ -248,12 +248,7 @@ Forks 通过 MCP (Model Context Protocol) Streamable HTTP 暴露工具接口，A
 │       ├── components/  # 通用组件
 │       ├── stores/      # Pinia 状态管理
 │       └── router/      # 路由配置
-└── API.md               # API 文档
 ```
-
-## API
-
-所有接口在 `/api` 前缀下，完整文档见 [API.md](./API.md)。
 
 ## License
 
