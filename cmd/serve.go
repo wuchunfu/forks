@@ -303,6 +303,10 @@ func sseAuthMiddleware() gin.HandlerFunc {
 				// 批量克隆任务
 				keyID = "batch_clone"
 				log.Printf("🔑 [SSE认证] 批量克隆任务, keyID=%s", keyID)
+			} else if strings.Contains(path, "batch-pull-status") {
+				// 批量拉取任务
+				keyID = "batch_pull"
+				log.Printf("🔑 [SSE认证] 批量拉取任务, keyID=%s", keyID)
 			} else {
 				// 其他操作使用路径参数id
 				if strings.Contains(path, "clone-status") {
@@ -321,7 +325,7 @@ func sseAuthMiddleware() gin.HandlerFunc {
 
 			if exists && queryToken == expectedToken {
 				// 对于扫描任务和批量克隆，不删除token（支持重连）
-				if !strings.Contains(path, "scan-status") && !strings.Contains(path, "batch-clone-status") {
+				if !strings.Contains(path, "scan-status") && !strings.Contains(path, "batch-clone-status") && !strings.Contains(path, "batch-pull-status") {
 					tempTokenMutex.Lock()
 					delete(tempTokenStore, keyID)
 					tempTokenMutex.Unlock()
@@ -700,6 +704,7 @@ func setupRoutes(r *gin.Engine) {
 		// Git 操作接口
 		api.POST("/repos/:id/clone", cloneRepo)
 		api.POST("/repos/:id/pull", pullRepo)
+		api.POST("/repos/batch-pull", batchPullRepos)
 		api.GET("/repos/:id/status", getRepoStatus)
 		api.GET("/repos/:id/diff", getRepoDiff)
 		api.GET("/repos/:id/commits", getRepoCommits)
@@ -725,6 +730,7 @@ func setupRoutes(r *gin.Engine) {
 	{
 		sseApi.GET("/repos/:id/clone-status", cloneRepoSSE)
 		sseApi.GET("/repos/:id/pull-status", pullRepoSSE)
+		sseApi.GET("/repos/batch-pull-status", batchPullSSE)
 		sseApi.GET("/repos/scan-status", scanReposSSE)
 		sseApi.GET("/repos/batch-clone-status", batchCloneSSE)
 	}
@@ -2740,6 +2746,206 @@ func pullRepoSSE(c *gin.Context) {
 	c.Writer.Flush()
 
 	c.SSEvent("complete", gin.H{"message": "✅ 仓库已同步到远程最新状态!"})
+	c.Writer.Flush()
+}
+
+// batchPullRepos 批量拉取所有已克隆仓库
+func batchPullRepos(c *gin.Context) {
+	log.Printf("🔄 [batchPullRepos] 开始批量拉取")
+
+	// 查询所有已克隆且有效的仓库数量
+	var total int
+	err := common.Db.QueryRow("SELECT COUNT(*) FROM repos WHERE is_cloned = 1 AND COALESCE(valid, 1) = 1").Scan(&total)
+	if err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": "查询数据库失败"})
+		return
+	}
+
+	if total == 0 {
+		c.JSON(200, gin.H{"code": 0, "message": "没有需要拉取的仓库", "data": gin.H{"total": 0}})
+		return
+	}
+
+	// 生成临时token并存入tempTokenStore供SSE认证使用
+	tempToken := generateToken()
+	tempTokenMutex.Lock()
+	tempTokenStore["batch_pull"] = tempToken
+	tempTokenMutex.Unlock()
+
+	c.JSON(200, gin.H{
+		"code":    0,
+		"message": fmt.Sprintf("开始批量拉取 %d 个仓库", total),
+		"data": gin.H{
+			"useSSE":    true,
+			"tempToken": tempToken,
+			"total":     total,
+		},
+	})
+}
+
+// batchPullSSE 批量拉取进度推送
+func batchPullSSE(c *gin.Context) {
+	log.Printf("🔄 [batchPullSSE] 客户端连接")
+
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("Access-Control-Allow-Origin", "*")
+
+	// SSE中间件已完成认证，直接开始业务逻辑
+	config, err := utils.ConfigInstance.ReadConfig()
+	if err != nil {
+		c.SSEvent("error", gin.H{"message": "读取配置失败"})
+		c.Writer.Flush()
+		return
+	}
+
+	// 从数据库查询所有已克隆且有效的仓库
+	rows, err := common.Db.Query("SELECT id, author, repo, url, source FROM repos WHERE is_cloned = 1 AND COALESCE(valid, 1) = 1")
+	if err != nil {
+		c.SSEvent("error", gin.H{"message": "查询数据库失败"})
+		c.Writer.Flush()
+		return
+	}
+	defer rows.Close()
+
+	type RepoInfo struct {
+		ID     int
+		Author string
+		Repo   string
+		Source string
+	}
+
+	var repos []RepoInfo
+	for rows.Next() {
+		var r RepoInfo
+		var url string
+		if err := rows.Scan(&r.ID, &r.Author, &r.Repo, &url, &r.Source); err == nil {
+			repos = append(repos, r)
+		}
+	}
+
+	if len(repos) == 0 {
+		c.SSEvent("error", gin.H{"message": "没有需要拉取的仓库"})
+		c.Writer.Flush()
+		return
+	}
+
+	total := len(repos)
+	pulled := 0
+	failed := 0
+
+	c.SSEvent("start", gin.H{"total": total, "message": fmt.Sprintf("开始拉取 %d 个仓库", total)})
+	c.Writer.Flush()
+
+	for i, r := range repos {
+		repoPath := filepath.Join(config.StoreRootPath, r.Source, r.Author, r.Repo)
+
+		c.SSEvent("progress", gin.H{
+			"current": i + 1,
+			"total":   total,
+			"repo":    fmt.Sprintf("%s/%s", r.Author, r.Repo),
+			"message": fmt.Sprintf("[%d/%d] 正在拉取 %s/%s ...", i+1, total, r.Author, r.Repo),
+		})
+		c.Writer.Flush()
+
+		// 检查本地仓库是否存在
+		if _, err := os.Stat(repoPath); os.IsNotExist(err) {
+			failed++
+			c.SSEvent("progress", gin.H{
+				"current": i + 1,
+				"total":   total,
+				"repo":    fmt.Sprintf("%s/%s", r.Author, r.Repo),
+				"message": fmt.Sprintf("[%d/%d] ⚠️ %s/%s 本地仓库不存在，跳过", i+1, total, r.Author, r.Repo),
+				"failed":  true,
+			})
+			c.Writer.Flush()
+			continue
+		}
+
+		// 设置代理
+		_, restoreProxy := applyGitProxyForPlatform(r.Source)
+
+		// fetch + reset 镜像模式
+		cmd := exec.Command("git", "fetch", "origin")
+		cmd.Dir = repoPath
+		logGitCmd("fetch", "origin")
+		fetchOutput, fetchErr := cmd.CombinedOutput()
+
+		if fetchErr != nil {
+			restoreProxy()
+			failed++
+			errMsg := strings.TrimSpace(string(fetchOutput))
+			if errMsg == "" {
+				errMsg = fetchErr.Error()
+			}
+			c.SSEvent("progress", gin.H{
+				"current": i + 1,
+				"total":   total,
+				"repo":    fmt.Sprintf("%s/%s", r.Author, r.Repo),
+				"message": fmt.Sprintf("[%d/%d] ❌ %s/%s fetch 失败: %s", i+1, total, r.Author, r.Repo, errMsg),
+				"failed":  true,
+			})
+			c.Writer.Flush()
+			continue
+		}
+
+		// 获取当前分支
+		branchCmd := exec.Command("git", "branch", "--show-current")
+		branchCmd.Dir = repoPath
+		branchOutput, branchErr := branchCmd.Output()
+		if branchErr != nil {
+			restoreProxy()
+			failed++
+			c.SSEvent("progress", gin.H{
+				"current": i + 1,
+				"total":   total,
+				"repo":    fmt.Sprintf("%s/%s", r.Author, r.Repo),
+				"message": fmt.Sprintf("[%d/%d] ❌ %s/%s 获取分支失败", i+1, total, r.Author, r.Repo),
+				"failed":  true,
+			})
+			c.Writer.Flush()
+			continue
+		}
+		currentBranch := strings.TrimSpace(string(branchOutput))
+
+		// reset --hard origin/branch
+		resetCmd := exec.Command("git", "reset", "--hard", fmt.Sprintf("origin/%s", currentBranch))
+		resetCmd.Dir = repoPath
+		logGitCmd("reset", "--hard", fmt.Sprintf("origin/%s", currentBranch))
+		resetCmd.CombinedOutput()
+
+		restoreProxy()
+		pulled++
+
+		// 更新 last_pulled_at
+		common.Db.Exec("UPDATE repos SET last_pulled_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?", r.ID)
+
+		c.SSEvent("progress", gin.H{
+			"current": i + 1,
+			"total":   total,
+			"repo":    fmt.Sprintf("%s/%s", r.Author, r.Repo),
+			"message": fmt.Sprintf("[%d/%d] ✅ %s/%s 拉取完成", i+1, total, r.Author, r.Repo),
+		})
+		c.Writer.Flush()
+
+		// 每个仓库之间间隔 1 秒，避免触发平台限流
+		if i < total-1 {
+			time.Sleep(1 * time.Second)
+		}
+	}
+
+	// 清理 token
+	tempTokenMutex.Lock()
+	delete(tempTokenStore, "batch_pull")
+	tempTokenMutex.Unlock()
+
+	c.SSEvent("complete", gin.H{
+		"message": fmt.Sprintf("批量拉取完成! 成功: %d, 失败: %d, 总计: %d", pulled, failed, total),
+		"total":   total,
+		"pulled":  pulled,
+		"failed":  failed,
+	})
 	c.Writer.Flush()
 }
 

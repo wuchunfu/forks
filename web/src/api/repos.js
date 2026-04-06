@@ -276,6 +276,50 @@ export function batchCloneSSE(tempToken, onProgress, onComplete, onError) {
   return eventSource
 }
 
+// 批量拉取所有已克隆仓库
+export function batchPullRepos() {
+  return request({
+    url: '/api/repos/batch-pull',
+    method: 'post'
+  })
+}
+
+// 批量拉取进度 SSE 连接
+export function batchPullSSE(tempToken, onProgress, onComplete, onError) {
+  const baseUrl = getApiBaseUrl()
+  const url = `${baseUrl}/api/repos/batch-pull-status?tempToken=${tempToken}`
+
+  const eventSource = new EventSource(url)
+
+  eventSource.addEventListener('start', (event) => {
+    const data = JSON.parse(event.data)
+    if (onProgress) onProgress({ type: 'start', ...data })
+  })
+
+  eventSource.addEventListener('progress', (event) => {
+    const data = JSON.parse(event.data)
+    if (onProgress) onProgress({ type: 'progress', ...data })
+  })
+
+  eventSource.addEventListener('complete', (event) => {
+    const data = JSON.parse(event.data)
+    if (onComplete) onComplete(data)
+    eventSource.close()
+  })
+
+  eventSource.addEventListener('error', (event) => {
+    const data = event.data ? JSON.parse(event.data) : { message: '连接失败' }
+    if (onError) onError(data)
+    eventSource.close()
+  })
+
+  eventSource.onerror = () => {
+    if (onError) onError({ message: '连接中断' })
+  }
+
+  return eventSource
+}
+
 // 获取代理配置
 export function getProxyConfig() {
   return request({

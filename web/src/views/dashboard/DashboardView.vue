@@ -136,6 +136,26 @@
             <div class="action-desc">更新仓库数据</div>
           </div>
         </button>
+
+        <!-- 一键拉取 -->
+        <button class="action-card" @click="handleBatchPull" :disabled="batchPullLoading">
+          <div class="action-icon action-icon-success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          </div>
+          <div class="action-text">
+            <div class="action-title">一键拉取</div>
+            <div class="action-desc">拉取所有已克隆仓库</div>
+          </div>
+          <div v-if="batchPullLoading" class="action-loading">
+            <svg class="loading-spinner" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="32" stroke-dashoffset="32"/>
+            </svg>
+          </div>
+        </button>
       </div>
     </div>
 
@@ -239,6 +259,49 @@
         </template>
       </n-card>
     </n-modal>
+
+    <!-- 批量拉取进度弹窗 -->
+    <n-modal v-model:show="showBatchPullProgress" :style="{ width: '500px' }" :closable="false" :maskClosable="false">
+      <n-card title="批量拉取进度" :bordered="false">
+        <div v-if="batchPullProgress">
+          <n-progress
+            type="line"
+            :percentage="batchPullProgress.total > 0 ? Math.round((batchPullProgress.current / batchPullProgress.total) * 100) : 0"
+            :status="batchPullProgress.completed ? 'success' : 'default'"
+          />
+
+          <n-space vertical style="margin-top: 16px">
+            <n-text>
+              {{ batchPullProgress.current || 0 }} / {{ batchPullProgress.total || 0 }}
+              <template v-if="batchPullProgress.repo">
+                - {{ batchPullProgress.repo }}
+              </template>
+            </n-text>
+            <n-text depth="3">{{ batchPullProgress.status }}</n-text>
+
+            <template v-if="batchPullProgress.completed">
+              <n-divider />
+              <n-space>
+                <n-tag type="success">成功: {{ batchPullProgress.pulled }}</n-tag>
+                <n-tag type="warning">失败: {{ batchPullProgress.failed }}</n-tag>
+              </n-space>
+            </template>
+          </n-space>
+        </div>
+
+        <template #footer>
+          <n-space justify="end">
+            <n-button
+              v-if="batchPullProgress?.completed"
+              type="primary"
+              @click="showBatchPullProgress = false"
+            >
+              完成
+            </n-button>
+          </n-space>
+        </template>
+      </n-card>
+    </n-modal>
   </div>
 </template>
 
@@ -280,6 +343,9 @@ const scanLoading = ref(false)
 const batchCloneLoading = ref(false)
 const showBatchCloneProgress = ref(false)
 const batchCloneProgress = ref(null)
+const batchPullLoading = ref(false)
+const showBatchPullProgress = ref(false)
+const batchPullProgress = ref(null)
 
 // 统计数据
 const statsData = ref({ total: 0, cloned: 0, notCloned: 0 })
@@ -481,6 +547,71 @@ const handleAddRepoSuccess = () => {
 const viewAllActivities = () => {
   // 跳转到活动记录页面
   router.push('/activities')
+}
+
+// 一键拉取所有已克隆仓库
+const handleBatchPull = async () => {
+  try {
+    batchPullLoading.value = true
+    const { batchPullRepos, batchPullSSE } = await import('@/api/repos')
+    const response = await batchPullRepos()
+    const apiData = response.data
+
+    if (apiData && apiData.code === 0) {
+      if (!apiData.data?.useSSE) {
+        message.info(apiData.message || '没有需要拉取的仓库')
+        batchPullLoading.value = false
+        return
+      }
+
+      const { tempToken, total } = apiData.data
+
+      showBatchPullProgress.value = true
+      batchPullProgress.value = { total, current: 0, status: '准备中...', pulled: 0, failed: 0 }
+
+      batchPullSSE(
+        tempToken,
+        (progress) => {
+          if (progress.type === 'start') {
+            batchPullProgress.value = { ...batchPullProgress.value, status: '开始拉取...', total: progress.total }
+          } else if (progress.type === 'progress') {
+            batchPullProgress.value = {
+              ...batchPullProgress.value,
+              current: progress.current,
+              total: progress.total,
+              repo: progress.repo,
+              status: progress.message,
+            }
+          }
+        },
+        (data) => {
+          batchPullLoading.value = false
+          batchPullProgress.value = {
+            ...batchPullProgress.value,
+            current: batchPullProgress.value.total,
+            completed: true,
+            pulled: data.pulled,
+            failed: data.failed,
+            status: data.message,
+          }
+          refreshRepos()
+        },
+        (data) => {
+          batchPullLoading.value = false
+          batchPullProgress.value = {
+            ...batchPullProgress.value,
+            completed: true,
+            status: data.message || '拉取失败',
+          }
+        }
+      )
+    } else {
+      throw new Error(apiData?.message || '操作失败')
+    }
+  } catch (error) {
+    batchPullLoading.value = false
+    message.error('批量拉取失败：' + error.message)
+  }
 }
 
 // 格式化时间
@@ -748,6 +879,11 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
 .action-icon-info {
   background-color: var(--color-cyan-50);
   color: var(--color-cyan-600);
+}
+
+.action-icon-success {
+  background-color: var(--color-green-50);
+  color: var(--color-green-600);
 }
 
 .action-text {
