@@ -12,7 +12,7 @@
       </template>
       查看代码
     </n-button>
-    <n-button @click="$emit('update-info', repo)" type="warning" :loading="updateLoading" :size="size">
+    <n-button @click="$emit('update-info', repo)" type="warning" :loading="updateLoading" :size="size" v-if="repo.valid !== 0">
       <template #icon>
         <n-icon><RefreshOutline /></n-icon>
       </template>
@@ -23,6 +23,18 @@
         <n-icon><InformationCircleOutline /></n-icon>
       </template>
       详情
+    </n-button>
+    <n-button v-if="repo.valid === 0" @click="$emit('toggle-valid', repo)" type="success" :size="size">
+      <template #icon>
+        <n-icon><CheckmarkCircleOutline /></n-icon>
+      </template>
+      取消失效标记
+    </n-button>
+    <n-button v-else @click="$emit('toggle-valid', repo)" type="default" :size="size">
+      <template #icon>
+        <n-icon><CloseCircleOutline /></n-icon>
+      </template>
+      标记为失效
     </n-button>
     <n-popconfirm @positive-click="$emit('delete-repo', repo)" negative-text="取消" positive-text="确认">
       <template #trigger>
@@ -40,8 +52,8 @@
 
 <script setup>
 import { NSpace, NButton, NIcon, NPopconfirm } from 'naive-ui'
-import { 
-  OpenOutline, CodeOutline, RefreshOutline, InformationCircleOutline, TrashOutline
+import {
+  OpenOutline, CodeOutline, RefreshOutline, InformationCircleOutline, TrashOutline, CheckmarkCircleOutline, CloseCircleOutline
 } from '@vicons/ionicons5'
 
 // Props
@@ -69,5 +81,5 @@ defineProps({
 })
 
 // Events
-defineEmits(['open-repo', 'view-code', 'update-info', 'show-detail', 'delete-repo'])
+defineEmits(['open-repo', 'view-code', 'update-info', 'show-detail', 'delete-repo', 'toggle-valid'])
 </script>

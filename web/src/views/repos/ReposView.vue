@@ -160,6 +160,12 @@
           @click="handleRepoClick(repo)"
           @contextmenu.prevent="(e) => handleContextMenu(e, repo)"
         >
+          <!-- 拉取进度覆盖层 -->
+          <div v-if="pullingRepoId === repo.id" class="repo-card-overlay">
+            <n-spin size="small" />
+            <span class="overlay-progress">{{ pullingProgress }}</span>
+          </div>
+
           <!-- 平台角标 -->
           <span
             class="card-badge"
@@ -181,7 +187,10 @@
               <span v-if="repo.languages" class="repo-language">
                 {{ getFirstLanguage(repo.languages) }}
               </span>
-              <span class="repo-status" :class="`status-${repo.is_cloned ? 'cloned' : 'uncloned'}`">
+              <span v-if="repo.valid === 0" class="repo-status status-invalid">
+                已失效
+              </span>
+              <span v-else class="repo-status" :class="`status-${repo.is_cloned ? 'cloned' : 'uncloned'}`">
                 {{ repo.is_cloned ? '已克隆' : '未克隆' }}
               </span>
             </div>
@@ -198,6 +207,12 @@
           @click="handleRepoClick(repo)"
           @contextmenu.prevent="(e) => handleContextMenu(e, repo)"
         >
+          <!-- 拉取进度覆盖层 -->
+          <div v-if="pullingRepoId === repo.id" class="repo-card-overlay">
+            <n-spin size="small" />
+            <span class="overlay-progress">{{ pullingProgress }}</span>
+          </div>
+
           <div class="repo-list-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
@@ -219,6 +234,15 @@
 
           <div class="repo-list-status">
             <n-tag
+              v-if="repo.valid === 0"
+              type="error"
+              size="small"
+              round
+            >
+              已失效
+            </n-tag>
+            <n-tag
+              v-else
               :type="repo.is_cloned ? 'success' : 'default'"
               size="small"
               round
@@ -273,6 +297,7 @@
       @view-code="handleViewCode"
       @update-info="handleUpdateInfo"
       @delete-repo="handleDelete"
+      @toggle-valid="handleToggleValid"
     />
   </div>
 </template>
@@ -293,9 +318,10 @@
  */
 import { ref, computed, onMounted, watch, h } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage, useDialog, NButton, NIcon, NSelect, NDropdown, NTag, NPagination, NSpace } from 'naive-ui'
+import { useMessage, useDialog, NButton, NIcon, NSelect, NDropdown, NTag, NPagination, NSpace, NSpin } from 'naive-ui'
 import { Add, Close } from '@vicons/ionicons5'
 import { useReposStore } from '@/stores/repos'
+import { pullRepo, pullRepoSSE, toggleValid } from '@/api/repos'
 import AddRepoModal from '@/components/AddRepoModal.vue'
 import RepoDetailDrawer from '@/components/RepoDetailDrawer.vue'
 
@@ -318,6 +344,10 @@ const searchQuery = ref('')
 const selectedStatus = ref(null)
 const selectedAuthor = ref(null)
 const selectedSource = ref(null)
+
+// 拉取进度
+const pullingRepoId = ref(null)
+const pullingProgress = ref('')
 
 // 右键菜单
 const contextMenuRepo = ref(null)
@@ -378,7 +408,8 @@ const getFirstLanguage = (languages) => {
 }
 
 const getRepoActions = (repo) => {
-  return [
+  const isInvalid = repo.valid === 0
+  const actions = [
     {
       label: '查看详情',
       key: 'view'
@@ -390,11 +421,17 @@ const getRepoActions = (repo) => {
     {
       type: 'divider',
       key: 'd1'
-    },
-    {
+    }
+  ]
+
+  if (!isInvalid) {
+    actions.push({
       label: repo.is_cloned ? '拉取更新' : '克隆仓库',
       key: repo.is_cloned ? 'pull' : 'clone'
-    },
+    })
+  }
+
+  actions.push(
     {
       label: '打开文件夹',
       key: 'open'
@@ -402,6 +439,14 @@ const getRepoActions = (repo) => {
     {
       type: 'divider',
       key: 'd2'
+    },
+    {
+      label: isInvalid ? '取消失效标记' : '标记为失效',
+      key: 'toggle-valid'
+    },
+    {
+      type: 'divider',
+      key: 'd3'
     },
     {
       label: '删除仓库',
@@ -412,7 +457,9 @@ const getRepoActions = (repo) => {
         }
       }
     }
-  ]
+  )
+
+  return actions
 }
 
 const handleAction = async (key, repo) => {
@@ -427,13 +474,59 @@ const handleAction = async (key, repo) => {
       message.success(`开始克隆 ${repo.repo}...`)
       break
     case 'pull':
-      message.success(`开始拉取 ${repo.repo}...`)
+      try {
+        pullingRepoId.value = repo.id
+        pullingProgress.value = '正在发起拉取...'
+        const response = await pullRepo(repo.id)
+        const apiData = response.data
+        if (apiData && apiData.code === 0 && apiData.data?.useSSE) {
+          pullingProgress.value = '连接中...'
+          pullRepoSSE(
+            repo.id,
+            apiData.data.tempToken,
+            (data) => {
+              pullingProgress.value = data.message || '拉取中...'
+            },
+            (data) => {
+              pullingRepoId.value = null
+              pullingProgress.value = ''
+              message.success(data.message || `${repo.repo} 拉取完成`)
+              reposStore.fetchRepos()
+            },
+            (data) => {
+              pullingRepoId.value = null
+              pullingProgress.value = ''
+              message.error(data.message || `${repo.repo} 拉取失败`)
+            }
+          )
+        } else {
+          throw new Error(apiData?.message || '拉取请求失败')
+        }
+      } catch (error) {
+        pullingRepoId.value = null
+        pullingProgress.value = ''
+        message.error('拉取失败：' + error.message)
+      }
       break
     case 'open':
       message.info('打开文件夹功能开发中...')
       break
     case 'delete':
       await handleDelete(repo)
+      break
+    case 'toggle-valid':
+      try {
+        const res = await toggleValid(repo.id)
+        const apiData = res.data
+        if (apiData && apiData.code === 0) {
+          message.success(apiData.message)
+          reposStore.fetchRepos()
+        } else {
+          throw new Error(apiData?.message || '操作失败')
+        }
+      } catch (error) {
+        message.error('操作失败：' + error.message)
+      }
       break
   }
 }
@@ -586,6 +679,24 @@ const handleDelete = (repo) => {
       }
     }
   })
+}
+
+const handleToggleValid = async (repo) => {
+  try {
+    const res = await toggleValid(repo.id)
+    const apiData = res.data
+    if (apiData && apiData.code === 0) {
+      message.success(apiData.message)
+      if (selectedRepo.value && selectedRepo.value.id === repo.id) {
+        selectedRepo.value = { ...selectedRepo.value, valid: apiData.data.valid }
+      }
+      reposStore.fetchRepos()
+    } else {
+      throw new Error(apiData?.message || '操作失败')
+    }
+  } catch (error) {
+    message.error('操作失败：' + error.message)
+  }
 }
 
 const handleAddRepoSuccess = () => {
@@ -1046,6 +1157,46 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
 .status-uncloned {
   background-color: var(--color-gray-100);
   color: var(--color-gray-700);
+}
+
+.status-invalid {
+  background-color: rgba(220, 38, 38, 0.1);
+  color: var(--color-red-600);
+}
+
+/* ============================================
+   PULL OVERLAY - 拉取进度覆盖层
+   ============================================ */
+
+.repo-card-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  background-color: rgba(0, 0, 0, 0.45);
+  border-radius: var(--radius-lg);
+  z-index: 5;
+  animation: fadeInOverlay 0.2s ease-out;
+}
+
+.overlay-progress {
+  font-size: var(--text-xs);
+  color: #fff;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes fadeInOverlay {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* ============================================

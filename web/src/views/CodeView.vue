@@ -84,6 +84,7 @@
                 @open-repo="openRepo"
                 @update-info="updateRepoInfo"
                 @delete-repo="deleteRepository"
+                @toggle-valid="handleToggleValid"
               />
             </n-card>
           </div>
@@ -1482,13 +1483,31 @@ const deleteRepository = async (id) => {
     addLog('仓库已从数据库中删除', 'success')
     message.success('仓库删除成功')
     showStatusPanel.value = true
-    
+
     // 可以选择跳转回首页或显示删除成功的消息
     window.location.href = '/'
   } catch (error) {
     addLog('删除仓库失败', 'error')
     message.error('删除仓库失败: ' + (error.message || '未知错误'))
     showStatusPanel.value = true
+  }
+}
+
+const handleToggleValid = async (repo) => {
+  try {
+    const res = await request.post(`/api/repos/${repo.id}/toggle-valid`)
+    const apiData = res.data
+    if (apiData && apiData.code === 0) {
+      message.success(apiData.message)
+      // 更新 repoInfo 中的 valid 状态
+      if (repoInfo.value && repoInfo.value.id === repo.id) {
+        repoInfo.value = { ...repoInfo.value, valid: apiData.data.valid }
+      }
+    } else {
+      throw new Error(apiData?.message || '操作失败')
+    }
+  } catch (error) {
+    message.error('操作失败：' + error.message)
   }
 }
 

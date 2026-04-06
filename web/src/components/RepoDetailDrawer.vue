@@ -3,6 +3,11 @@
     <n-drawer-content title="仓库详细信息" closable>
       <div v-if="repo" class="repo-detail">
         <n-space vertical size="large">
+          <!-- 失效提示 -->
+          <n-alert v-if="repo.valid === 0" title="仓库已失效" type="error" :bordered="false">
+            该仓库可能在远端已被删除、归档或不可访问。拉取和更新操作已隐藏，您可以右键选择「取消失效标记」恢复。
+          </n-alert>
+
           <!-- 基本信息 -->
           <n-card title="基本信息" size="small">
             <n-descriptions :column="1" label-placement="left">
@@ -102,6 +107,7 @@
               @view-code="$emit('view-code', $event)"
               @update-info="$emit('update-info', $event)"
               @delete-repo="handleDeleteRepo"
+              @toggle-valid="$emit('toggle-valid', $event)"
             />
           </n-card>
         </n-space>
@@ -114,7 +120,7 @@
 import { computed } from 'vue'
 import {
   NDrawer, NDrawerContent, NSpace, NCard, NDescriptions, NDescriptionsItem,
-  NText, NButton, NTag, NStatistic, NIcon, NTooltip, useMessage
+  NText, NButton, NTag, NStatistic, NIcon, NTooltip, NAlert, useMessage
 } from 'naive-ui'
 import { StarOutline, GitBranchOutline, CopyOutline } from '@vicons/ionicons5'
 import { copyToClipboard } from '../utils/clipboard'
@@ -141,7 +147,7 @@ const props = defineProps({
 })
 
 // Events
-const emit = defineEmits(['update:show', 'open-repo', 'view-code', 'update-info', 'delete-repo'])
+const emit = defineEmits(['update:show', 'open-repo', 'view-code', 'update-info', 'delete-repo', 'toggle-valid'])
 
 const message = useMessage()
 

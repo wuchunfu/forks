@@ -110,6 +110,14 @@ export function updateRepoInfo(id) {
   })
 }
 
+// 切换仓库有效状态
+export function toggleValid(id) {
+  return request({
+    url: `/api/repos/${id}/toggle-valid`,
+    method: 'post'
+  })
+}
+
 // 获取时间轴维度信息（智能判断时间粒度）
 export function getTimelineDimensions(params = {}) {
   return request({
@@ -136,8 +144,16 @@ export function scanRepos() {
   })
 }
 
+// 拉取仓库更新
+export function pullRepo(id) {
+  return request({
+    url: `/api/repos/${id}/pull`,
+    method: 'post'
+  })
+}
+
 // 获取 API 基础 URL
-function getApiBaseUrl() {
+export function getApiBaseUrl() {
   const apiUrl = import.meta.env.VITE_API_URL
 
   // 1. 只有当环境变量有效且不是 '/' 或空字符串时才使用
@@ -292,4 +308,59 @@ export function updateToken(data) {
     method: 'post',
     data
   })
+}
+
+// 拉取仓库进度 SSE 连接
+export function pullRepoSSE(id, tempToken, onProgress, onComplete, onError) {
+  const baseUrl = getApiBaseUrl()
+  const url = `${baseUrl}/api/repos/${id}/pull-status?tempToken=${tempToken}`
+
+  console.log('[SSE] 连接拉取进度:', url)
+
+  const eventSource = new EventSource(url)
+
+  eventSource.addEventListener('start', (event) => {
+    try {
+      const data = JSON.parse(event.data)
+      if (onProgress) onProgress(data)
+    } catch (e) {
+      console.error('[SSE] 解析 start 事件失败:', e)
+    }
+  })
+
+  eventSource.addEventListener('progress', (event) => {
+    try {
+      const data = JSON.parse(event.data)
+      if (onProgress) onProgress(data)
+    } catch (e) {
+      console.error('[SSE] 解析 progress 事件失败:', e)
+    }
+  })
+
+  eventSource.addEventListener('complete', (event) => {
+    try {
+      const data = JSON.parse(event.data)
+      if (onComplete) onComplete(data)
+    } catch (e) {
+      console.error('[SSE] 解析 complete 事件失败:', e)
+      if (onError) onError({ message: '解析结果失败' })
+    }
+    eventSource.close()
+  })
+
+  eventSource.addEventListener('error', (event) => {
+    try {
+      const data = event.data ? JSON.parse(event.data) : { message: 'SSE连接错误' }
+      if (onError) onError(data)
+    } catch (e) {
+      if (onError) onError({ message: '连接失败' })
+    }
+    eventSource.close()
+  })
+
+  eventSource.onerror = () => {
+    if (onError) onError({ message: '连接中断' })
+  }
+
+  return eventSource
 }

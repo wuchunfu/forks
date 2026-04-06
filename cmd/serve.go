@@ -674,6 +674,7 @@ func setupRoutes(r *gin.Engine) {
 		api.DELETE("/repos/:id", deleteRepo)
 		api.GET("/repos/:id", getRepo)
 		api.PUT("/repos/:id/update", updateRepoInfo)
+		api.POST("/repos/:id/toggle-valid", toggleValid)
 
 		// 作者管理接口
 		api.GET("/authors", getAuthors)
@@ -852,7 +853,7 @@ func getRepos(c *gin.Context) {
 
 	// 构建完整 SQL
 	countSQL := "SELECT COUNT(*) FROM repos" + whereSQL
-	querySQL := "SELECT id, author, repo, url, description, stars, forks, topics, license, created_at, COALESCE(updated_at, ''), COALESCE(is_cloned, 0), source FROM repos" + whereSQL + " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+	querySQL := "SELECT id, author, repo, url, COALESCE(description, ''), COALESCE(stars, 0), COALESCE(forks, 0), COALESCE(topics, ''), COALESCE(license, ''), created_at, COALESCE(updated_at, ''), COALESCE(is_cloned, 0), COALESCE(source, 'github'), COALESCE(valid, 1) FROM repos" + whereSQL + " ORDER BY created_at DESC LIMIT ? OFFSET ?"
 	args = append(args, pageSizeNum, offset)
 
 	log.Printf("🔍 [getRepos] SQL: %s, args: %v", querySQL, args)
@@ -880,7 +881,8 @@ func getRepos(c *gin.Context) {
 		var createdAt string
 		var updatedAt string
 		var isCloned int
-		err := rows.Scan(&id, &repo.Author, &repo.Repo, &repo.URL, &repo.Description, &repo.Stars, &repo.Fork, &repo.Topics, &repo.License, &createdAt, &updatedAt, &isCloned, &repo.Source)
+		var valid int
+		err := rows.Scan(&id, &repo.Author, &repo.Repo, &repo.URL, &repo.Description, &repo.Stars, &repo.Fork, &repo.Topics, &repo.License, &createdAt, &updatedAt, &isCloned, &repo.Source, &valid)
 		if err != nil {
 			continue
 		}
@@ -899,6 +901,7 @@ func getRepos(c *gin.Context) {
 			"updated_at":  updatedAt,
 			"is_cloned":   isCloned,
 			"source":      repo.Source,
+			"valid":       valid,
 		}
 		repos = append(repos, repoData)
 	}
@@ -1125,14 +1128,29 @@ func addRepo(c *gin.Context) {
 func deleteRepo(c *gin.Context) {
 	id := c.Param("id")
 
-	// 先获取仓库名称
-	var repoName string
-	common.Db.QueryRow("SELECT author || '/' || repo FROM repos WHERE id = ?", id).Scan(&repoName)
+	// 先获取仓库信息（删除数据库前需要这些信息）
+	var author, repo, source string
+	common.Db.QueryRow("SELECT author, repo, COALESCE(source, 'github') FROM repos WHERE id = ?", id).Scan(&author, &repo, &source)
+
+	repoName := author + "/" + repo
+
+	// 构建本地仓库路径
+	config, _ := utils.ConfigInstance.ReadConfig()
+	repoPath := filepath.Join(config.StoreRootPath, source, author, repo)
 
 	_, err := common.Db.Exec("DELETE FROM repos WHERE id = ?", id)
 	if err != nil {
 		c.JSON(500, gin.H{"code": 500, "message": "删除仓库失败"})
 		return
+	}
+
+	// 删除本地 git 仓库文件
+	if _, err := os.Stat(repoPath); err == nil {
+		if removeErr := os.RemoveAll(repoPath); removeErr != nil {
+			log.Printf("⚠️ [删除] 删除本地仓库文件失败: %s, 错误: %v", repoPath, removeErr)
+		} else {
+			log.Printf("🗑️ [删除] 已删除本地仓库文件: %s", repoPath)
+		}
 	}
 
 	// 记录活动（repo_id 为 0 因为已删除）
@@ -1148,8 +1166,9 @@ func getRepo(c *gin.Context) {
 	var createdAt, updatedAt string
 	var isCloned int
 	var source string
-	err := common.Db.QueryRow("SELECT author, repo, url, description, stars, forks, topics, license, created_at, COALESCE(updated_at, ''), COALESCE(is_cloned, 0), source FROM repos WHERE id = ?", id).
-		Scan(&repo.Author, &repo.Repo, &repo.URL, &repo.Description, &repo.Stars, &repo.Fork, &repo.Topics, &repo.License, &createdAt, &updatedAt, &isCloned, &source)
+	var valid int
+	err := common.Db.QueryRow("SELECT author, repo, url, COALESCE(description, ''), COALESCE(stars, 0), COALESCE(forks, 0), COALESCE(topics, ''), COALESCE(license, ''), created_at, COALESCE(updated_at, ''), COALESCE(is_cloned, 0), COALESCE(source, 'github'), COALESCE(valid, 1) FROM repos WHERE id = ?", id).
+		Scan(&repo.Author, &repo.Repo, &repo.URL, &repo.Description, &repo.Stars, &repo.Fork, &repo.Topics, &repo.License, &createdAt, &updatedAt, &isCloned, &source, &valid)
 	if err != nil {
 		c.JSON(404, gin.H{"code": 404, "message": "仓库不存在"})
 		return
@@ -1168,6 +1187,7 @@ func getRepo(c *gin.Context) {
 		"updated_at":  updatedAt,
 		"is_cloned":   isCloned,
 		"source":      source,
+		"valid":       valid,
 	}, "message": "success"})
 }
 
@@ -2978,6 +2998,29 @@ func performScan(taskID string) {
 		})
 	}
 
+	// 将新仓库插入数据库
+	for _, newRepo := range newRepos {
+		authorVal, _ := newRepo["author"].(string)
+		repoVal, _ := newRepo["repo"].(string)
+		urlVal, _ := newRepo["url"].(string)
+		sourceVal, _ := newRepo["source"].(string)
+
+		_, err := common.Db.Exec(`INSERT INTO repos (
+			author, repo, url, git_url, description, stars, forks, topics, license, source, is_cloned, created_at, updated_at
+		) VALUES (
+			?, ?, ?, ?, '', 0, 0, '', '', ?, 1, strftime('%Y-%m-%d %H:%M:%S', 'now','localtime'), strftime('%Y-%m-%d %H:%M:%S', 'now','localtime')
+		)`,
+			authorVal, repoVal, urlVal,
+			fmt.Sprintf("%s.git", urlVal),
+			sourceVal,
+		)
+		if err != nil {
+			log.Printf("⚠️ [扫描] 插入新仓库失败: %s/%s, 错误: %v", authorVal, repoVal, err)
+		} else {
+			log.Printf("✅ [扫描] 已入库: %s/%s (%s)", authorVal, repoVal, sourceVal)
+		}
+	}
+
 	task.mu.Lock()
 	task.MissingRepos = missingRepos
 	task.NewRepos = newRepos
@@ -2985,8 +3028,8 @@ func performScan(taskID string) {
 	task.ScannedDirs = scannedCount
 	task.mu.Unlock()
 
-	log.Printf("✅ [扫描] 扫描完成! 扫描=%d, 新仓库=%d, 未克隆=%d, 已存在=%d, 状态同步=%d",
-		scannedCount, len(newRepos), len(missingRepos), existingCount, len(statusUpdated))
+	log.Printf("✅ [扫描] 扫描完成! 扫描=%d, 新仓库=%d, 已入库=%d, 未克隆=%d, 已存在=%d, 状态同步=%d",
+		scannedCount, len(newRepos), len(newRepos), len(missingRepos), existingCount, len(statusUpdated))
 
 	// 如果有状态更新，添加到结果中
 	if len(statusUpdated) > 0 {
@@ -3141,19 +3184,26 @@ func updateRepoInfo(c *gin.Context) {
 
 	// 获取最新仓库信息
 	var updatedRepo *models.GitRepoInfo
+	valid := 1 // 默认有效
 	if giteePlatform, ok := platform.(*utils.Gitee); ok {
 		updatedRepo, err = giteePlatform.FetchRepoInfo(repo.Author, repo.Repo)
 		if err != nil {
-			log.Printf("❌ [更新] Gitee API 请求失败: %v", err)
-			c.JSON(500, gin.H{"code": 500, "message": "无法获取最新仓库信息: " + err.Error()})
+			// Gitee API 返回 404 等错误，标记为失效
+			log.Printf("❌ [更新] Gitee API 请求失败，标记为失效: %v", err)
+			valid = 0
+			common.Db.Exec("UPDATE repos SET valid = 0, updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?", id)
+			c.JSON(200, gin.H{"code": 0, "message": "远端仓库不可访问，已标记为失效", "data": gin.H{"valid": 0}})
 			return
 		}
 	} else {
 		log.Printf("🔄 [更新] 正在抓取页面: %s", repo.URL)
 		doc, err := platform.FetchDocs(repo.URL)
 		if err != nil {
-			log.Printf("❌ [更新] 抓取页面失败: %v", err)
-			c.JSON(500, gin.H{"code": 500, "message": "无法获取最新仓库信息: " + err.Error()})
+			// 页面抓取失败（404等），标记为失效
+			log.Printf("❌ [更新] 抓取页面失败，标记为失效: %v", err)
+			valid = 0
+			common.Db.Exec("UPDATE repos SET valid = 0, updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?", id)
+			c.JSON(200, gin.H{"code": 0, "message": "远端仓库不可访问，已标记为失效", "data": gin.H{"valid": 0}})
 			return
 		}
 		updatedRepo = platform.ParseDoc(doc)
@@ -3173,6 +3223,7 @@ func updateRepoInfo(c *gin.Context) {
 		topics = ?,
 		license = ?,
 		languages = ?,
+		valid = ?,
 		updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime')
 		WHERE id = ?`,
 		updatedRepo.Description,
@@ -3181,6 +3232,7 @@ func updateRepoInfo(c *gin.Context) {
 		updatedRepo.Topics,
 		updatedRepo.License,
 		updatedRepo.Languages,
+		valid,
 		id)
 
 	if err != nil {
@@ -3204,6 +3256,43 @@ func updateRepoInfo(c *gin.Context) {
 			"license":     updatedRepo.License,
 			"languages":   updatedRepo.Languages,
 			"updated_at":  updatedAt,
+			"valid":       valid,
+		},
+	})
+}
+
+// toggleValid 切换仓库的 valid 状态
+func toggleValid(c *gin.Context) {
+	id := c.Param("id")
+
+	var currentValid int
+	err := common.Db.QueryRow("SELECT COALESCE(valid, 1) FROM repos WHERE id = ?", id).Scan(&currentValid)
+	if err != nil {
+		c.JSON(404, gin.H{"code": 404, "message": "仓库不存在"})
+		return
+	}
+
+	newValid := 1
+	if currentValid == 1 {
+		newValid = 0
+	}
+
+	_, err = common.Db.Exec("UPDATE repos SET valid = ? WHERE id = ?", newValid, id)
+	if err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": "更新状态失败"})
+		return
+	}
+
+	msg := "已恢复为有效"
+	if newValid == 0 {
+		msg = "已标记为失效"
+	}
+
+	c.JSON(200, gin.H{
+		"code":    0,
+		"message": msg,
+		"data": gin.H{
+			"valid": newValid,
 		},
 	})
 }

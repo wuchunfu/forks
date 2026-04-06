@@ -62,6 +62,7 @@
       @open-repo="openRepo"
       @update-info="updateRepoInfo"
       @delete-repo="deleteRepository"
+      @toggle-valid="handleToggleValid"
     />
   </div>
 </template>
@@ -148,6 +149,24 @@ const updateRepoInfo = async (repo) => {
     message.error(errorMessage)
   } finally {
     updateLoading.value = false
+  }
+}
+
+// 切换仓库有效状态
+const handleToggleValid = async (repo) => {
+  try {
+    const res = await request.post(`/api/repos/${repo.id}/toggle-valid`)
+    const apiData = res.data
+    if (apiData && apiData.code === 0) {
+      message.success(apiData.message)
+      if (repoInfo.value && repoInfo.value.id === repo.id) {
+        repoInfo.value = { ...repoInfo.value, valid: apiData.data.valid }
+      }
+    } else {
+      throw new Error(apiData?.message || '操作失败')
+    }
+  } catch (error) {
+    message.error('操作失败：' + error.message)
   }
 }
 

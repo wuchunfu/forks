@@ -93,6 +93,9 @@ var rootCmd = &cobra.Command{
 			return
 		}
 
+		// 兼容旧数据：添加 valid 字段
+		_, _ = common.Db.Exec(`ALTER TABLE repos ADD COLUMN valid INTEGER DEFAULT 1`)
+
 		fmt.Println("Table created successfully")
 
 		fmt.Println("Database connected successfully")
