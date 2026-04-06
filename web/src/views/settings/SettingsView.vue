@@ -183,7 +183,6 @@
                 <button
                   class="btn-icon"
                   title="复制令牌"
-                  :disabled="!plainToken"
                   @click="copyToken"
                 >
                   <svg v-if="!copied" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -1022,6 +1021,8 @@ onMounted(() => {
 
 .token-value {
   display: inline-block;
+  min-width: 200px;
+  max-width: 320px;
   padding: var(--space-2_5) var(--space-4);
   background-color: var(--color-bg-page);
   border: 1px solid var(--color-border);
@@ -1030,6 +1031,9 @@ onMounted(() => {
   font-family: var(--font-mono, 'Courier New', Courier, monospace);
   color: var(--color-text-primary);
   letter-spacing: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .token-actions {
@@ -1045,7 +1049,7 @@ onMounted(() => {
 
 .token-custom .form-input {
   flex: 1;
-  max-width: 300px;
+  max-width: 360px;
 }
 
 .form-hint {
@@ -1229,7 +1233,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  max-width: 400px;
 }
 
 .about-link-item {
@@ -1266,10 +1269,6 @@ onMounted(() => {
   width: 16px !important;
   height: 16px !important;
   color: var(--color-text-tertiary) !important;
-}
-
-.about-desc {
-  max-width: 400px;
 }
 
 .about-desc p {
