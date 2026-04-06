@@ -123,7 +123,6 @@
                 @open-folder="$emit('open-folder', repo)"
                 @clone="$emit('clone', repo)"
                 @pull="$emit('pull', repo)"
-                @reset="$emit('reset', repo)"
                 @delete="$emit('delete', repo)"
                 @update-info="$emit('update-info', repo)"
               />
@@ -171,7 +170,7 @@ const props = defineProps({
 
 const emit = defineEmits([
   'repo-click', 'view-code', 'open-folder',
-  'clone', 'pull', 'reset', 'delete', 'update-info'
+  'clone', 'pull', 'delete', 'update-info'
 ])
 
 const timelineTreeRef = ref(null)

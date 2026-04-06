@@ -291,9 +291,9 @@
  * - 分页组件
  * - 仓库操作（查看、克隆、删除等）
  */
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, h } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage, NButton, NIcon, NSelect, NDropdown, NTag, NPagination, NSpace } from 'naive-ui'
+import { useMessage, useDialog, NButton, NIcon, NSelect, NDropdown, NTag, NPagination, NSpace } from 'naive-ui'
 import { Add, Close } from '@vicons/ionicons5'
 import { useReposStore } from '@/stores/repos'
 import AddRepoModal from '@/components/AddRepoModal.vue'
@@ -305,6 +305,7 @@ const props = defineProps({
 
 const router = useRouter()
 const message = useMessage()
+const dialog = useDialog()
 const reposStore = useReposStore()
 
 // 响应式数据
@@ -535,18 +536,56 @@ const handleUpdateInfo = async (repo) => {
   }
 }
 
-const handleDelete = async (repo) => {
+const handleDelete = (repo) => {
   if (!repo || !repo.id) {
     message.error('仓库信息无效')
     return
   }
-  try {
-    await reposStore.removeRepo(repo.id)
-    message.success('仓库删除成功')
-    showDetailDrawer.value = false
-  } catch (error) {
-    message.error('删除失败：' + error.message)
-  }
+
+  const repoName = `${repo.author}/${repo.repo}`
+  let confirmInput = ''
+
+  dialog.warning({
+    title: '删除仓库',
+    content: () => {
+      return h('div', {}, [
+        h('p', { style: 'margin-bottom: 12px;' }, [
+          '确定要删除仓库 ',
+          h('strong', { style: 'color: var(--color-red-600);' }, repoName),
+          ' 吗？此操作不可恢复。'
+        ]),
+        h('p', { style: 'margin-bottom: 8px; font-size: 13px;' },
+          `请输入 ${repoName} 以确认删除：`
+        ),
+        h('input', {
+          style: 'width: 100%; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: inherit; font-size: 14px; outline: none; box-sizing: border-box;',
+          placeholder: repoName,
+          onInput: (e) => { confirmInput = e.target.value },
+          onKeydown: (e) => {
+            if (e.key === 'Enter') {
+              const positiveBtn = e.target.closest('.n-dialog').querySelector('.n-dialog__action .n-button--warning-type')
+              positiveBtn?.click()
+            }
+          }
+        })
+      ])
+    },
+    positiveText: '删除仓库',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      if (confirmInput !== repoName) {
+        message.error('输入的仓库名称不匹配')
+        return false
+      }
+      try {
+        await reposStore.removeRepo(repo.id)
+        message.success('仓库删除成功')
+        showDetailDrawer.value = false
+      } catch (error) {
+        message.error('删除失败：' + error.message)
+      }
+    }
+  })
 }
 
 const handleAddRepoSuccess = () => {

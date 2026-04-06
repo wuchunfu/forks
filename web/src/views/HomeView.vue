@@ -145,7 +145,6 @@
             @open-folder="handleOpenFolder"
             @clone="handleClone"
             @pull="handlePull"
-            @reset="handleReset"
             @delete="handleDelete"
             @update-info="handleUpdateInfo"
             @batch-clone="handleCardBatchClone"
@@ -610,14 +609,6 @@ const handlePull = async (repo) => {
     return
   }
   message.success(`开始拉取 ${repo.repo}...`)
-}
-
-const handleReset = async (repo) => {
-  if (!repo || !repo.id) {
-    message.error('仓库信息无效')
-    return
-  }
-  message.success(`开始重置 ${repo.repo}...`)
 }
 
 const handleDelete = async (repo) => {

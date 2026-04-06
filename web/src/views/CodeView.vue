@@ -26,17 +26,6 @@
                     </template>
                     拉取最新更新
                   </n-button>
-                  <n-popconfirm @positive-click="resetRepository" :disabled="!repoExists" negative-text="取消" positive-text="确认">
-                    <template #trigger>
-                      <n-button :loading="operations.resetting" :disabled="!repoExists" block type="warning">
-                        <template #icon>
-                          <n-icon><ReloadOutline /></n-icon>
-                        </template>
-                        重置到远程最新
-                      </n-button>
-                    </template>
-                    确定要重置仓库吗？这将丢弃所有本地修改，将仓库恢复到与远程分支完全一致的状态。此操作不可恢复。
-                  </n-popconfirm>
                   <n-button @click="checkStatus" :loading="operations.checking" block>
                     <template #icon>
                       <n-icon><InformationCircleOutline /></n-icon>
@@ -557,7 +546,6 @@ const operations = ref({
   cloning: false,
   pulling: false,
   checking: false,
-  resetting: false,
   updating: false
 })
 
@@ -1169,91 +1157,6 @@ const pullUpdates = async () => {
     console.error('拉取更新失败:', error)
     addLog('拉取更新失败: ' + (error.message || '未知错误'), 'error')
     operations.value.pulling = false
-    showStatusPanel.value = true
-  }
-}
-
-const resetRepository = async () => {
-  operations.value.resetting = true
-  try {
-    const response = await request.post(`/api/repos/${repoId.value}/reset`)
-    
-    if (response.data.data?.useSSE) {
-      // 使用SSE获取实时状态，使用临时token
-      const baseUrl = getApiBaseUrl()
-      const tempToken = response.data.data.tempToken
-      const eventSource = new EventSource(`${baseUrl}/api/repos/${repoId.value}/reset-status?tempToken=${tempToken}`)
-      
-      eventSource.onopen = () => {
-        addLog('开始重置仓库，正在连接...', 'info')
-        setCurrentOperation('连接服务器中...', true)
-        showStatusPanel.value = true
-      }
-      
-      eventSource.addEventListener('start', (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          addLog(data.message, 'info')
-          setCurrentOperation(data.message, true)
-        } catch (error) {
-          console.error('Failed to parse event data:', event.data)
-          addLog('解析服务器数据失败', 'warning')
-        }
-      })
-      
-      eventSource.addEventListener('progress', (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          addLog(data.message, 'info')
-          setCurrentOperation(data.message, true)
-        } catch (error) {
-          console.error('Failed to parse event data:', event.data)
-          addLog('解析进度数据失败', 'warning')
-        }
-      })
-      
-      eventSource.addEventListener('complete', (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          addLog(data.message, 'success')
-        } catch (error) {
-          console.error('Failed to parse event data:', event.data)
-          addLog('重置操作完成', 'success')
-        }
-        eventSource.close()
-        operations.value.resetting = false
-        clearCurrentOperation()
-        checkRepoStatus()
-        loadFileTree()
-      })
-      
-      eventSource.addEventListener('error', (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          addLog(data.message, 'error')
-        } catch (error) {
-          addLog('重置过程中发生错误', 'error')
-        }
-        eventSource.close()
-        operations.value.resetting = false
-        clearCurrentOperation()
-      })
-      
-      eventSource.onerror = () => {
-        addLog('连接中断', 'error')
-        eventSource.close()
-        operations.value.resetting = false
-        clearCurrentOperation()
-      }
-    } else {
-      message.success(response.data.message)
-      operations.value.resetting = false
-    }
-  } catch (error) {
-    console.error('重置仓库失败:', error)
-    message.error('重置仓库失败: ' + (error.message || '未知错误'))
-    operations.value.resetting = false
-    addLog('重置失败: ' + (error.message || '未知错误'), 'error')
     showStatusPanel.value = true
   }
 }

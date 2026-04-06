@@ -309,8 +309,6 @@ func sseAuthMiddleware() gin.HandlerFunc {
 					operation = "_clone"
 				} else if strings.Contains(path, "pull-status") {
 					operation = "_pull"
-				} else if strings.Contains(path, "reset-status") {
-					operation = "_reset"
 				}
 				keyID = id + operation
 				log.Printf("🔑 [SSE认证] 其他操作, keyID=%s", keyID)
@@ -701,7 +699,6 @@ func setupRoutes(r *gin.Engine) {
 		// Git 操作接口
 		api.POST("/repos/:id/clone", cloneRepo)
 		api.POST("/repos/:id/pull", pullRepo)
-		api.POST("/repos/:id/reset", resetRepo)
 		api.GET("/repos/:id/status", getRepoStatus)
 		api.GET("/repos/:id/diff", getRepoDiff)
 		api.GET("/repos/:id/commits", getRepoCommits)
@@ -727,7 +724,6 @@ func setupRoutes(r *gin.Engine) {
 	{
 		sseApi.GET("/repos/:id/clone-status", cloneRepoSSE)
 		sseApi.GET("/repos/:id/pull-status", pullRepoSSE)
-		sseApi.GET("/repos/:id/reset-status", resetRepoSSE)
 		sseApi.GET("/repos/scan-status", scanReposSSE)
 		sseApi.GET("/repos/batch-clone-status", batchCloneSSE)
 	}
@@ -2602,7 +2598,7 @@ func batchCloneSSE(c *gin.Context) {
 	log.Printf("✅ [batchCloneSSE] 批量克隆完成: 总数=%d, 成功=%d, 失败=%d, 失效=%d", total, clonedCount, failedCount, invalidCount)
 }
 
-// pullRepoSSE 拉取更新的SSE接口
+// pullRepoSSE 拉取更新的SSE接口（fetch + reset 模式，镜像专用）
 func pullRepoSSE(c *gin.Context) {
 	id := c.Param("id")
 
@@ -2629,131 +2625,12 @@ func pullRepoSSE(c *gin.Context) {
 	}
 
 	// 发送开始信息
-	c.SSEvent("start", gin.H{"message": "开始拉取更新..."})
+	c.SSEvent("start", gin.H{"message": "开始拉取最新..."})
 	c.Writer.Flush()
 
 	// 按平台动态设置代理
 	_, restorePullProxy := applyGitProxyForPlatform(repoSource)
 	defer restorePullProxy()
-
-	// 执行git pull
-	logGitCmd("pull", "--progress")
-	cmd := exec.Command("git", "pull", "--progress")
-	cmd.Dir = repoPath
-
-	// 获取stdout和stderr
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		c.SSEvent("error", gin.H{"message": "创建命令失败"})
-		return
-	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		c.SSEvent("error", gin.H{"message": "创建命令失败"})
-		return
-	}
-
-	if err := cmd.Start(); err != nil {
-		c.SSEvent("error", gin.H{"message": "启动拉取失败: " + err.Error()})
-		return
-	}
-
-	// 创建goroutine读取输出
-	go func() {
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if line != "" {
-				c.SSEvent("progress", gin.H{"message": line})
-				c.Writer.Flush()
-			}
-		}
-	}()
-
-	// 读取stderr
-	scanner := bufio.NewScanner(stderr)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line != "" {
-			c.SSEvent("progress", gin.H{"message": line})
-			c.Writer.Flush()
-		}
-	}
-
-	if err := cmd.Wait(); err != nil {
-		c.SSEvent("error", gin.H{"message": "拉取失败: " + err.Error()})
-		return
-	}
-
-	c.SSEvent("complete", gin.H{"message": "拉取更新成功!"})
-	c.Writer.Flush()
-}
-
-// resetRepo 重置仓库到远程最新状态
-func resetRepo(c *gin.Context) {
-	id := c.Param("id")
-	repoPath, err := getRepoPath(id)
-	if err != nil {
-		c.JSON(500, gin.H{"code": 500, "message": err.Error()})
-		return
-	}
-
-	// 检查仓库是否存在
-	if _, err := os.Stat(repoPath); os.IsNotExist(err) {
-		c.JSON(500, gin.H{"code": 500, "message": "本地仓库不存在，请先克隆"})
-		return
-	}
-
-	// 生成临时token并存储
-	tempToken := generateToken()
-	tempTokenMutex.Lock()
-	tempTokenStore[id+"_reset"] = tempToken
-	tempTokenMutex.Unlock()
-
-	c.JSON(200, gin.H{
-		"code":    0,
-		"message": "开始重置仓库，请查看实时状态",
-		"data": gin.H{
-			"useSSE":    true,
-			"tempToken": tempToken,
-		},
-	})
-}
-
-// resetRepoSSE 重置仓库的SSE实现
-func resetRepoSSE(c *gin.Context) {
-	id := c.Param("id")
-
-	// 设置SSE头部
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("Access-Control-Allow-Origin", "*")
-
-	repoPath, err := getRepoPath(id)
-	if err != nil {
-		c.SSEvent("error", gin.H{"message": err.Error()})
-		return
-	}
-
-	// 获取仓库 source 用于代理判断
-	var repoSource string
-	common.Db.QueryRow("SELECT source FROM repos WHERE id = ?", id).Scan(&repoSource)
-
-	// 检查仓库是否存在
-	if _, err := os.Stat(repoPath); os.IsNotExist(err) {
-		c.SSEvent("error", gin.H{"message": "本地仓库不存在，请先克隆"})
-		return
-	}
-
-	// 发送开始信息
-	c.SSEvent("start", gin.H{"message": "开始重置仓库到远程最新状态..."})
-	c.Writer.Flush()
-
-	// 按平台动态设置代理
-	_, restoreResetProxy := applyGitProxyForPlatform(repoSource)
-	defer restoreResetProxy()
 
 	// 1. 获取当前分支名
 	logGitCmd("branch", "--show-current")
@@ -2825,24 +2702,24 @@ func resetRepoSSE(c *gin.Context) {
 	}
 
 	// 5. 检查最终状态
-	c.SSEvent("progress", gin.H{"message": "验证重置结果..."})
+	c.SSEvent("progress", gin.H{"message": "验证结果..."})
 	c.Writer.Flush()
 
 	cmd = exec.Command("git", "status", "--porcelain")
 	cmd.Dir = repoPath
 	statusOutput, err := cmd.Output()
 	if err != nil {
-		c.SSEvent("progress", gin.H{"message": "检查状态时出现问题，但重置可能已成功"})
+		c.SSEvent("progress", gin.H{"message": "检查状态时出现问题，但拉取可能已成功"})
 	} else {
 		if len(strings.TrimSpace(string(statusOutput))) == 0 {
-			c.SSEvent("progress", gin.H{"message": "✅ 工作区干净，重置成功"})
+			c.SSEvent("progress", gin.H{"message": "✅ 工作区干净，已同步到远程最新状态"})
 		} else {
 			c.SSEvent("progress", gin.H{"message": "⚠️ 仍有未提交的更改"})
 		}
 	}
 	c.Writer.Flush()
 
-	c.SSEvent("complete", gin.H{"message": "🔄 仓库已重置到远程最新状态!"})
+	c.SSEvent("complete", gin.H{"message": "✅ 仓库已同步到远程最新状态!"})
 	c.Writer.Flush()
 }
 

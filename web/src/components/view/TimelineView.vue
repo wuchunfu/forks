@@ -256,7 +256,6 @@ const emit = defineEmits([
   'open-folder',
   'clone',
   'pull',
-  'reset',
   'delete',
   'update-info',
   'share',
@@ -423,15 +422,9 @@ const getActionOptions = (repo) => {
       show: !repoStatus?.exists
     },
     {
-      label: '拉取更新',
+      label: '拉取最新',
       key: 'pull',
       icon: () => h('span', '🔄'),
-      show: repoStatus?.exists
-    },
-    {
-      label: '重置仓库',
-      key: 'reset',
-      icon: () => h('span', '🔁'),
       show: repoStatus?.exists
     },
     { type: 'divider' },
@@ -458,9 +451,6 @@ const handleAction = (key, repo) => {
       break
     case 'pull':
       emit('pull', repo)
-      break
-    case 'reset':
-      emit('reset', repo)
       break
     case 'delete':
       emit('delete', repo)

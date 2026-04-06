@@ -382,7 +382,6 @@ const emit = defineEmits([
   'open-folder',
   'clone',
   'pull',
-  'reset',
   'delete',
   'update-info',
   'share',
@@ -494,13 +493,8 @@ const actionMenuOptions = (repo) => {
       show: !repoStatus?.exists
     },
     {
-      label: '拉取更新',
+      label: '拉取最新',
       key: 'pull',
-      show: repoStatus?.exists
-    },
-    {
-      label: '重置仓库',
-      key: 'reset',
       show: repoStatus?.exists
     },
     {

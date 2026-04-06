@@ -86,7 +86,7 @@
           @open-folder="$emit('open-folder', $event)"
           @clone="$emit('clone', $event)"
           @pull="$emit('pull', $event)"
-          @reset="$emit('reset', $event)"
+          @pull="$emit('pull', $event)"
           @delete="$emit('delete', $event)"
           @update-info="$emit('update-info', $event)"
           @share="$emit('share', $event)"
@@ -188,7 +188,6 @@ const emit = defineEmits([
   'open-folder',
   'clone',
   'pull',
-  'reset',
   'delete',
   'update-info',
   'share',
