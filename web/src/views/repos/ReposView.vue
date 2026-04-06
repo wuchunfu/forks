@@ -148,6 +148,7 @@
         :y="contextMenuY"
         :show="showContextMenu"
         @update:show="showContextMenu = $event"
+        @clickoutside="showContextMenu = false"
       />
 
       <!-- 网格视图 -->
@@ -572,6 +573,13 @@ const handlePageSizeChange = async (size) => {
 
 // 生命周期
 onMounted(async () => {
+  // 重置筛选状态，避免从其他页面返回时残留旧条件
+  searchQuery.value = ''
+  selectedStatus.value = null
+  selectedAuthor.value = null
+  selectedSource.value = null
+  reposStore.clearFilters()
+
   // 从 URL 查询参数获取筛选条件（从作者页跳转过来时携带）
   const route = router.currentRoute.value
   if (route.query.author) {

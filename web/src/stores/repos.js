@@ -257,15 +257,17 @@ export const useReposStore = defineStore('repos', () => {
     try {
       await deleteRepo(repoId)
 
-      // 从列表中移除
-      repos.value = repos.value.filter(repo => repo.id !== repoId)
+      // 清除选中状态和缓存
       selectedRepos.value = selectedRepos.value.filter(repo => repo.id !== repoId)
-
-      // 移除状态缓存
       delete repoStatuses.value[repoId]
 
-      // 更新总数
-      total.value = Math.max(0, total.value - 1)
+      // 如果当前页只剩一条数据且不是第一页，回退到上一页
+      if (repos.value.length <= 1 && currentPage.value > 1) {
+        currentPage.value -= 1
+      }
+
+      // 重新获取分页数据
+      await fetchRepos()
     } catch (err) {
       error.value = err.message
       throw err
