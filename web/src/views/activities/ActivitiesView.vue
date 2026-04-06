@@ -360,8 +360,8 @@ watch(() => props.refreshKey, (newVal, oldVal) => {
 }
 
 .icon-success {
-  background-color: var(--color-green-50);
-  color: var(--color-green-600);
+  background-color: var(--color-success-50);
+  color: var(--color-success-600);
 }
 
 .icon-info {
@@ -370,13 +370,13 @@ watch(() => props.refreshKey, (newVal, oldVal) => {
 }
 
 .icon-warning {
-  background-color: var(--color-amber-50);
-  color: var(--color-amber-600);
+  background-color: var(--color-warning-50);
+  color: var(--color-warning-600);
 }
 
 .icon-error {
-  background-color: var(--color-red-50);
-  color: var(--color-red-600);
+  background-color: var(--color-error-50);
+  color: var(--color-error-600);
 }
 
 .activity-content {

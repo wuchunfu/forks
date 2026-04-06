@@ -393,11 +393,11 @@ defineExpose({
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background: white;
-  border: 1px solid #e0e0e0;
+  background: var(--color-bg-surface-elevated);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 12px 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-md);
   z-index: 1000;
   animation: slideUp 0.3s ease-out;
 }

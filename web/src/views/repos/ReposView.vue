@@ -492,7 +492,7 @@ const getRepoActions = (repo) => {
       key: 'delete',
       props: {
         style: {
-          color: 'var(--color-red-600)'
+          color: 'var(--color-error-600)'
         }
       }
     }
@@ -683,7 +683,7 @@ const handleDelete = (repo) => {
       return h('div', {}, [
         h('p', { style: 'margin-bottom: 12px;' }, [
           '确定要删除仓库 ',
-          h('strong', { style: 'color: var(--color-red-600);' }, repoName),
+          h('strong', { style: 'color: var(--color-error-600);' }, repoName),
           ' 吗？此操作不可恢复。'
         ]),
         h('p', { style: 'margin-bottom: 8px; font-size: 13px;' },
@@ -975,11 +975,11 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
 }
 
 .stat-success {
-  color: var(--color-green-600);
+  color: var(--color-success-600);
 }
 
 .stat-warning {
-  color: var(--color-amber-600);
+  color: var(--color-warning-600);
 }
 
 /* ============================================
@@ -1128,7 +1128,7 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
 }
 
 .card-invalid:hover {
-  border-color: var(--color-red-500, #ef4444);
+  border-color: var(--color-error-500, #ef4444);
 }
 
 .repo-info {
@@ -1179,12 +1179,12 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
 
 .badge-github {
   background-color: rgba(110, 110, 110, 0.12);
-  color: #8b949e;
+  color: var(--color-gray-600);
 }
 
 .badge-gitee {
   background-color: rgba(139, 195, 74, 0.12);
-  color: #8bc34a;
+  color: var(--color-success-500);
 }
 
 .repo-status {
@@ -1194,8 +1194,8 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
 }
 
 .status-cloned {
-  background-color: var(--color-green-50);
-  color: var(--color-green-700);
+  background-color: var(--color-success-50);
+  color: var(--color-success-700);
 }
 
 .status-uncloned {
@@ -1205,7 +1205,7 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
 
 .status-invalid {
   background-color: rgba(220, 38, 38, 0.1);
-  color: var(--color-red-600);
+  color: var(--color-error-600);
 }
 
 .repo-pulled-time {
@@ -1214,7 +1214,7 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
 }
 
 .repo-pulled-time.pull-fresh {
-  color: var(--color-green-600);
+  color: var(--color-success-600);
 }
 
 .repo-pulled-time.pull-recent {
@@ -1250,8 +1250,8 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
 }
 
 .repo-card-time.pull-fresh {
-  background-color: var(--color-green-50);
-  color: var(--color-green-600);
+  background-color: var(--color-success-50);
+  color: var(--color-success-600);
 }
 
 .repo-card-time.pull-recent {
@@ -1260,8 +1260,8 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
 }
 
 .repo-card-time.pull-normal {
-  background-color: var(--color-amber-50, #fffbeb);
-  color: var(--color-amber-600, #d97706);
+  background-color: var(--color-warning-50, #fffbeb);
+  color: var(--color-warning-600, #d97706);
 }
 
 .repo-card-time.pull-stale {

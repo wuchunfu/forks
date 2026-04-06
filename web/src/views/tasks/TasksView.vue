@@ -674,11 +674,11 @@ onUnmounted(() => {
 }
 
 .stat-success .stat-value {
-  color: var(--color-green-600);
+  color: var(--color-success-600);
 }
 
 .stat-fail .stat-value {
-  color: var(--color-red-500);
+  color: var(--color-error-500);
 }
 
 /* ============================================
@@ -880,13 +880,4 @@ onUnmounted(() => {
   padding: var(--space-4) 0;
 }
 
-/* ============================================
-   DARK MODE
-   ============================================ */
-
-@media (prefers-color-scheme: dark) {
-  :root[data-theme='dark'] .drawer-item:hover {
-    background-color: var(--color-gray-800);
-  }
-}
 </style>

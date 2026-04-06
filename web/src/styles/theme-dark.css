@@ -75,6 +75,10 @@
   --color-bg-overlay: rgba(0, 0, 0, 0.65);
   --color-bg-modal: rgba(0, 0, 0, 0.75);
 
+  /* ----- 背景色覆盖 (variables.css 中硬编码的) ----- */
+  --color-bg-card: var(--color-card-bg);
+  --color-bg-elevated: var(--color-bg-surface-elevated);
+
   /* ----- 侧边栏 ----- */
   --color-bg-sidebar: #111827;
   --color-bg-sidebar-hover: #1f2937;

@@ -783,18 +783,18 @@ watch(() => tasksStore.hasRunning, (newVal, oldVal) => {
 }
 
 .stat-card-success .stat-icon {
-  background-color: var(--color-green-50);
-  color: var(--color-green-600);
+  background-color: var(--color-success-50);
+  color: var(--color-success-600);
 }
 
 .stat-card-warning .stat-icon {
-  background-color: var(--color-amber-50);
-  color: var(--color-amber-600);
+  background-color: var(--color-warning-50);
+  color: var(--color-warning-600);
 }
 
 .stat-card-info .stat-icon {
-  background-color: var(--color-cyan-50);
-  color: var(--color-cyan-600);
+  background-color: var(--color-info-50);
+  color: var(--color-info-600);
 }
 
 .stat-content {
@@ -898,23 +898,23 @@ watch(() => tasksStore.hasRunning, (newVal, oldVal) => {
 }
 
 .action-icon-success {
-  background-color: var(--color-green-50);
-  color: var(--color-green-600);
+  background-color: var(--color-success-50);
+  color: var(--color-success-600);
 }
 
 .action-icon-warning {
-  background-color: var(--color-amber-50);
-  color: var(--color-amber-600);
+  background-color: var(--color-warning-50);
+  color: var(--color-warning-600);
 }
 
 .action-icon-info {
-  background-color: var(--color-cyan-50);
-  color: var(--color-cyan-600);
+  background-color: var(--color-info-50);
+  color: var(--color-info-600);
 }
 
 .action-icon-success {
-  background-color: var(--color-green-50);
-  color: var(--color-green-600);
+  background-color: var(--color-success-50);
+  color: var(--color-success-600);
 }
 
 .action-text {
@@ -1045,23 +1045,23 @@ watch(() => tasksStore.hasRunning, (newVal, oldVal) => {
 }
 
 .activity-icon-success {
-  background-color: var(--color-green-50);
-  color: var(--color-green-600);
+  background-color: var(--color-success-50);
+  color: var(--color-success-600);
 }
 
 .activity-icon-warning {
-  background-color: var(--color-amber-50);
-  color: var(--color-amber-600);
+  background-color: var(--color-warning-50);
+  color: var(--color-warning-600);
 }
 
 .activity-icon-error {
-  background-color: var(--color-red-50);
-  color: var(--color-red-600);
+  background-color: var(--color-error-50);
+  color: var(--color-error-600);
 }
 
 .activity-icon-info {
-  background-color: var(--color-cyan-50);
-  color: var(--color-cyan-600);
+  background-color: var(--color-info-50);
+  color: var(--color-info-600);
 }
 
 .activity-content {
@@ -1109,7 +1109,7 @@ watch(() => tasksStore.hasRunning, (newVal, oldVal) => {
 
 .running-task-section {
   background-color: var(--color-bg-card);
-  border: 1px solid #e0e7ff;
+  border: 1px solid var(--color-primary-200);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
 }
@@ -1150,7 +1150,7 @@ watch(() => tasksStore.hasRunning, (newVal, oldVal) => {
 }
 
 .task-status-badge.status-running {
-  color: #2080f0;
-  background: #e8f4fd;
+  color: var(--color-info);
+  background: var(--color-info-50);
 }
 </style>

@@ -648,7 +648,165 @@ export const darkThemeOverrides = {
     arrowColorActive: '#3b82f6',
   },
 
-  // Others...
+  // Tag
+  Tag: {
+    borderRadius: '4px',
+    padding: '0 8px',
+    heightSmall: '20px',
+    heightMedium: '24px',
+    heightLarge: '28px',
+    fontSizeSmall: '12px',
+    fontSizeMedium: '12px',
+    fontSizeLarge: '14px',
+  },
+
+  // Message
+  Message: {
+    borderRadius: '8px',
+    padding: '12px 16px',
+    fontSize: '14px',
+  },
+
+  // Notification
+  Notification: {
+    borderRadius: '8px',
+    padding: '16px 20px',
+    fontSize: '14px',
+    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5)',
+  },
+
+  // Switch
+  Switch: {
+    borderRadius: '12px',
+    railColor: '#4b5563',
+    railColorActive: '#3b82f6',
+    buttonColor: '#1f2937',
+    boxShadowFocus: '0 0 0 2px rgba(59, 130, 246, 0.2)',
+  },
+
+  // Checkbox
+  Checkbox: {
+    borderRadius: '4px',
+    borderColor: '#4b5563',
+    borderColorChecked: '#3b82f6',
+    checkMarkColor: '#ffffff',
+    boxShadowFocus: '0 0 0 2px rgba(59, 130, 246, 0.2)',
+  },
+
+  // Radio
+  Radio: {
+    boxShadowFocus: '0 0 0 2px rgba(59, 130, 246, 0.2)',
+    dotColorActive: '#1f2937',
+    colorActive: '#3b82f6',
+    boxShadowActive: '0 0 0 1px #3b82f6',
+  },
+
+  // Slider
+  Slider: {
+    railColor: '#4b5563',
+    railColorHover: '#6b7280',
+    fillColor: '#3b82f6',
+    fillColorHover: '#60a5fa',
+    handleColor: '#1f2937',
+    dotColor: '#1f2937',
+    dotBorderColor: '#3b82f6',
+  },
+
+  // Progress
+  Progress: {
+    railColor: '#4b5563',
+    fillColor: '#3b82f6',
+    textColor: '#f9fafb',
+    fontSizeCircle: '24px',
+  },
+
+  // Alert
+  Alert: {
+    borderRadius: '8px',
+    padding: '12px 16px',
+    fontSize: '14px',
+  },
+
+  // Popover
+  Popover: {
+    color: '#1f2937',
+    textColor: '#f9fafb',
+    borderRadius: '8px',
+    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5)',
+    padding: '12px 16px',
+  },
+
+  // Drawer
+  Drawer: {
+    color: '#1f2937',
+    textColor: '#f9fafb',
+    boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.75)',
+  },
+
+  // Pagination
+  Pagination: {
+    itemColor: '#1f2937',
+    itemColorHover: '#374151',
+    itemColorPressed: '#4b5563',
+    itemColorActive: '#3b82f6',
+    itemTextColor: '#f9fafb',
+    itemTextColorHover: '#f9fafb',
+    itemTextColorPressed: '#f9fafb',
+    itemTextColorActive: '#ffffff',
+    itemBorderColor: '#374151',
+    itemBorderRadius: '6px',
+  },
+
+  // Breadcrumb
+  Breadcrumb: {
+    itemTextColor: '#9ca3af',
+    itemTextColorHover: '#3b82f6',
+    itemTextColorActive: '#f9fafb',
+    fontSize: '14px',
+  },
+
+  // Steps
+  Steps: {
+    stepTextColor: '#9ca3af',
+    stepTextColorActive: '#3b82f6',
+    stepTextColorFinished: '#f9fafb',
+  },
+
+  // Timeline
+  Timeline: {
+    titleTextColor: '#f9fafb',
+    contentTextColor: '#9ca3af',
+    lineColor: '#374151',
+  },
+
+  // Skeleton
+  Skeleton: {
+    color: '#374151',
+    colorEnd: '#4b5563',
+    borderRadius: '6px',
+  },
+
+  // Spin
+  Spin: {
+    sizeSmall: '18px',
+    sizeMedium: '24px',
+    sizeLarge: '36px',
+  },
+
+  // Tabs
+  Tabs: {
+    tabTextColorBar: '#9ca3af',
+    tabTextColorActiveBar: '#3b82f6',
+    tabTextColorHoverBar: '#f9fafb',
+    barColor: 'transparent',
+    barColorHover: 'transparent',
+    panePaddingSmall: '12px 0',
+    panePaddingMedium: '16px 0',
+    panePaddingLarge: '24px 0',
+    gapSmall: '24px',
+    gapMedium: '28px',
+    gapLarge: '32px',
+  },
 }
 
 /**

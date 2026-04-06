@@ -195,12 +195,12 @@ const deleteRepository = async (repo) => {
 
 .code-header {
   height: 64px;
-  background: #fff;
-  border-bottom: 1px solid #e0e0e0;
+  background: var(--color-bg-card);
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   padding: 0 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  box-shadow: var(--shadow-sm);
 }
 
 .header-left {
@@ -218,7 +218,7 @@ const deleteRepository = async (repo) => {
 .logo-text {
   font-size: 20px;
   font-weight: bold;
-  color: #18a058;
+  color: var(--color-success);
 }
 
 .breadcrumb {
@@ -237,19 +237,19 @@ const deleteRepository = async (repo) => {
   align-items: center;
   gap: 12px;
   padding: 8px 16px;
-  background: #f8f9fa;
+  background: var(--color-bg-surface);
   border-radius: 6px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--color-border);
 }
 
 .repo-icon {
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .repo-name {
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 .header-right {
@@ -268,6 +268,6 @@ const deleteRepository = async (repo) => {
 }
 
 :deep(.n-breadcrumb-item:hover) {
-  color: #18a058;
+  color: var(--color-success);
 }
 </style>

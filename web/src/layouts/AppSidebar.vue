@@ -406,38 +406,4 @@ const handleCollapse = () => {
   opacity: 0.9;
 }
 
-/* ============================================
-   DARK MODE - 暗色模式
-   ============================================ */
-
-@media (prefers-color-scheme: dark) {
-  :root[data-theme='dark'] .app-sidebar {
-    background-color: var(--color-gray-900);
-    border-right-color: var(--color-gray-800);
-  }
-
-  :root[data-theme='dark'] .sidebar-header {
-    border-bottom-color: var(--color-gray-800);
-  }
-
-  :root[data-theme='dark'] .toggle-btn:hover {
-    background-color: var(--color-gray-800);
-  }
-
-  :root[data-theme='dark'] .nav-link:hover {
-    background-color: var(--color-gray-800);
-  }
-
-  :root[data-theme='dark'] .nav-link-active {
-    background-color: rgba(37, 99, 235, 0.15);
-  }
-
-  :root[data-theme='dark'] .sidebar-collapsed .nav-link:hover {
-    background-color: var(--color-gray-800);
-  }
-
-  :root[data-theme='dark'] .sidebar-collapsed .nav-link-active:hover {
-    background-color: var(--color-primary);
-  }
-}
 </style>

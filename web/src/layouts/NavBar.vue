@@ -94,6 +94,14 @@
             </div>
           </n-popover>
 
+          <!-- 主题切换按钮 -->
+          <span class="theme-toggle-btn" @click="themeStore.toggleTheme()">
+            <n-icon size="20">
+              <SunnyOutline v-if="isDark" />
+              <MoonOutline v-else />
+            </n-icon>
+          </span>
+
           <template v-if="!userInfo">
             <n-space align="center">
               <n-avatar
@@ -135,11 +143,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { NLayoutHeader, NMenu, NInput, NButton, NAvatar, NBadge, NIcon, NDropdown, NSpace, NPopover, NProgress, useMessage } from 'naive-ui'
 // import { useUserStore } from '@/stores/user'
 // import { storeToRefs } from 'pinia'
-import { SearchOutline, ListOutline } from '@vicons/ionicons5'
+import { SearchOutline, ListOutline, SunnyOutline, MoonOutline } from '@vicons/ionicons5'
+import { useThemeStore } from '@/stores/theme'
 import { getRepos } from '@/api/repos'
 import { useTasksStore } from '@/stores/tasks'
 
 const tasksStore = useTasksStore()
+const themeStore = useThemeStore()
+const isDark = computed(() => themeStore.getCurrentTheme() === 'dark')
 
 // 防抖函数
 function debounce(func, wait) {
@@ -437,7 +448,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #fff;
+  background: var(--color-bg-navbar);
   box-sizing: border-box;
   padding: 0 32px;
   position: relative;
@@ -481,7 +492,7 @@ onUnmounted(() => {
   font-size: 1.7rem;
   font-weight: 800;
   letter-spacing: 1.5px;
-  color: #333;
+  color: var(--color-text-primary);
   font-family: 'Fira Code', 'Lato', 'Segoe UI', 'Arial', sans-serif;
   background: linear-gradient(90deg, #4CAF50 0%, #2196F3 100%);
   -webkit-background-clip: text;
@@ -498,7 +509,7 @@ onUnmounted(() => {
   font-size: 1.7rem;
   font-weight: 800;
   letter-spacing: 1.5px;
-  color: rgba(51, 51, 51, 0.2);
+  color: rgba(100, 100, 100, 0.2);
   font-family: 'Fira Code', 'Lato', 'Segoe UI', 'Arial', sans-serif;
   position: absolute;
   top: 2px;
@@ -564,19 +575,19 @@ onUnmounted(() => {
 }
 .search-input {
   width: 260px;
-  background: #f5f6fa;
+  background: var(--color-bg-page);
 }
 .search-suggestions {
   position: absolute;
-  top: 100%; /* Position below the input */
+  top: 100%;
   left: 0;
   width: 100%;
-  background: #fff;
-  border: 1px solid #eee;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
   z-index: 10;
-  max-height: 200px; /* Limit height for suggestions */
+  max-height: 200px;
   overflow-y: auto;
   padding: 8px 0;
 }
@@ -588,20 +599,20 @@ onUnmounted(() => {
   transition: background-color 0.2s ease;
 }
 .suggestion-item:hover {
-  background-color: #f0f0f0;
+  background-color: var(--color-gray-100);
 }
 .suggestion-icon {
   margin-right: 8px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 .suggestion-text {
   flex-grow: 1;
   font-size: 0.9rem;
-  color: #333;
+  color: var(--color-text-primary);
 }
 .suggestion-type {
   font-size: 0.7rem;
-  color: #999;
+  color: var(--color-text-tertiary);
   margin-left: 8px;
 }
 .nav-right {
@@ -611,10 +622,25 @@ onUnmounted(() => {
 }
 
 .task-icon-btn {
-  color: #666;
+  color: var(--color-text-secondary);
 }
 .task-icon-btn:hover {
-  color: #333;
+  color: var(--color-text-primary);
+}
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: color 0.2s, background-color 0.2s;
+}
+.theme-toggle-btn:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-gray-100);
 }
 
 .task-popover {
@@ -627,16 +653,16 @@ onUnmounted(() => {
   align-items: center;
   margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--color-border-light);
 }
 .task-popover-title {
   font-weight: 600;
   font-size: 14px;
-  color: #333;
+  color: var(--color-text-primary);
 }
 .task-popover-empty {
   text-align: center;
-  color: #999;
+  color: var(--color-text-tertiary);
   padding: 20px 0;
   font-size: 13px;
 }
@@ -655,7 +681,7 @@ onUnmounted(() => {
   transition: background 0.15s;
 }
 .task-popover-item:hover {
-  background: #f5f6fa;
+  background: var(--color-bg-page);
 }
 .task-item-left {
   display: flex;
@@ -664,7 +690,7 @@ onUnmounted(() => {
 }
 .task-item-type {
   font-size: 13px;
-  color: #333;
+  color: var(--color-text-primary);
   font-weight: 500;
 }
 .task-item-right {
@@ -677,13 +703,13 @@ onUnmounted(() => {
   font-size: 12px;
   font-weight: 500;
 }
-.task-item-status.status-running { color: #2080f0; }
-.task-item-status.status-completed { color: #18a058; }
-.task-item-status.status-failed { color: #d03050; }
-.task-item-status.status-pending { color: #999; }
+.task-item-status.status-running { color: var(--color-info-500); }
+.task-item-status.status-completed { color: var(--color-success); }
+.task-item-status.status-failed { color: var(--color-error-500); }
+.task-item-status.status-pending { color: var(--color-text-tertiary); }
 .task-item-time {
   font-size: 11px;
-  color: #bbb;
+  color: var(--color-text-quaternary);
 }
 
 .dropdown-arrow {
@@ -703,11 +729,11 @@ onUnmounted(() => {
 .user-name {
   margin: 0 10px;
   font-weight: 500;
-  color: #333;
+  color: var(--color-text-primary);
 }
 .logout-btn {
   margin-left: 4px;
-  color: #888;
+  color: var(--color-text-tertiary);
 }
 .n-layout-header {
   position: fixed;
@@ -715,12 +741,12 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   z-index: 200;
-  background: #fff;
-  box-shadow: 0 2px 8px 0 rgba(60,60,60,0.04);
+  background: var(--color-bg-navbar);
+  box-shadow: var(--shadow-sm);
 }
 .center-title {
   font-size: 1.25rem;
-  color: #1E80FF;
+  color: var(--color-primary);
   font-weight: 700;
   margin-left: 18px;
 }
@@ -729,7 +755,7 @@ onUnmounted(() => {
   align-items: center;
   height: 56px;
   padding: 0 24px;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  background: var(--color-bg-navbar);
+  box-shadow: var(--shadow-sm);
 }
 </style> 

@@ -476,13 +476,13 @@ const getLanguageColor = (language) => {
 }
 
 .repo-card:hover {
-  border-color: #18a058;
+  border-color: var(--color-success);
   box-shadow: 0 4px 12px rgba(24, 160, 88, 0.15);
   transform: translateY(-2px);
 }
 
 .repo-card--selected {
-  border-color: #18a058;
+  border-color: var(--color-success);
   box-shadow: 0 0 0 2px rgba(24, 160, 88, 0.2);
 }
 

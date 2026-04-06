@@ -398,7 +398,7 @@ const getLanguageColor = (language) => {
     'CSS': '#1572b6',
     'Shell': '#89e051'
   }
-  return colors[language] || '#666'
+  return colors[language] || 'var(--color-text-secondary)'
 }
 
 const formatNumber = (num) => {
@@ -539,7 +539,7 @@ const handleAction = (key, repo) => {
   padding: 12px 16px;
   background: #f8f9fa;
   border-radius: 8px;
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--color-border-light);
 }
 
 .list-header__selection {
@@ -554,13 +554,13 @@ const handleAction = (key, repo) => {
 }
 
 .list-card {
-  background: white;
-  border: 1px solid #f0f0f0;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 16px;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-xs);
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -569,14 +569,14 @@ const handleAction = (key, repo) => {
 }
 
 .list-card:hover {
-  border-color: #18a058;
+  border-color: var(--color-success);
   box-shadow: 0 4px 12px rgba(24, 160, 88, 0.15);
   transform: translateY(-1px);
 }
 
 .list-card--selected {
-  background: #f0f9ff;
-  border-color: #18a058;
+  background: var(--color-info-bg);
+  border-color: var(--color-success);
 }
 
 .list-card--first {
@@ -606,7 +606,7 @@ const handleAction = (key, repo) => {
 }
 
 .repo-name {
-  color: #18a058;
+  color: var(--color-success);
 }
 
 .list-card__time {
@@ -637,7 +637,7 @@ const handleAction = (key, repo) => {
   align-items: center;
   gap: 4px;
   font-size: 14px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .language-dot {

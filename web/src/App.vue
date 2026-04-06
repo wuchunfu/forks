@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, toRef } from 'vue'
 import {
   NMessageProvider,
   NNotificationProvider,
@@ -7,19 +7,25 @@ import {
   NModalProvider,
   NDialogProvider
 } from 'naive-ui'
-import { getThemeOverrides } from './composables/useTheme'
+import { useThemeStore } from '@/stores/theme'
+import { createThemeConfig, getThemeOverrides } from './composables/useTheme'
 
 // 导入 Design Tokens 样式
 import './styles/index.css'
 
-// 固定使用浅色主题
-const themeOverrides = computed(() => {
-  return getThemeOverrides('light')
+const themeStore = useThemeStore()
+const { naiveTheme, actualTheme } = createThemeConfig(toRef(themeStore, 'mode'))
+
+// Naive UI 主题 + 组件覆盖
+const themeOverrides = computed(() => getThemeOverrides(actualTheme.value))
+
+onMounted(() => {
+  themeStore.initTheme()
 })
 </script>
 
 <template>
-  <NConfigProvider :theme-overrides="themeOverrides">
+  <NConfigProvider :theme="naiveTheme" :theme-overrides="themeOverrides">
     <NNotificationProvider>
       <NMessageProvider>
         <NDialogProvider>

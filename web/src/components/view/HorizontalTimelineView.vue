@@ -333,16 +333,16 @@ onUnmounted(() => {
   display: flex;
   gap: 1px;
   height: calc(100vh - 160px);
-  background: #e5e7eb;
+  background: var(--color-border);
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
 }
 
 /* 左侧时间轴 */
 .timeline-sidebar {
   width: 200px;
-  background: #fff;
+  background: var(--color-bg-card);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -350,18 +350,18 @@ onUnmounted(() => {
 
 .timeline-header {
   padding: 16px 12px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #f9fafb;
+  background: var(--color-bg-surface);
 }
 
 .timeline-header h3 {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 
 .timeline-scroll {
@@ -375,12 +375,12 @@ onUnmounted(() => {
 }
 
 .timeline-scroll::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: var(--color-scrollbar-thumb);
   border-radius: 2px;
 }
 
 .timeline-scroll::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: var(--color-scrollbar-thumb-hover);
 }
 
 .timeline-track {
@@ -395,7 +395,7 @@ onUnmounted(() => {
   top: 8px;
   bottom: 8px;
   width: 2px;
-  background: linear-gradient(180deg, #3b82f6 0%, #8b5cf6 100%);
+  background: linear-gradient(180deg, var(--color-primary-500) 0%, var(--color-primary-300) 100%);
   border-radius: 1px;
 }
 
@@ -408,11 +408,11 @@ onUnmounted(() => {
 }
 
 .timeline-item:hover {
-  background: #f3f4f6;
+  background: var(--color-gray-100);
 }
 
 .timeline-item.is-active {
-  background: #eff6ff;
+  background: var(--color-primary-50);
 }
 
 .timeline-dot {
@@ -423,8 +423,8 @@ onUnmounted(() => {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #fff;
-  border: 2px solid #3b82f6;
+  background: var(--color-bg-card);
+  border: 2px solid var(--color-primary-500);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
   transition: all 0.15s ease;
   z-index: 1;
@@ -434,7 +434,7 @@ onUnmounted(() => {
   width: 12px;
   height: 12px;
   left: 10px;
-  border-color: #8b5cf6;
+  border-color: var(--color-primary-300);
 }
 
 .timeline-item:hover .timeline-dot {
@@ -443,7 +443,7 @@ onUnmounted(() => {
 }
 
 .timeline-item.is-active .timeline-dot {
-  background: #3b82f6;
+  background: var(--color-primary-500);
   transform: translateY(-50%) scale(1.2);
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
 }
@@ -455,28 +455,28 @@ onUnmounted(() => {
 .timeline-label {
   font-size: 13px;
   font-weight: 500;
-  color: #374151;
+  color: var(--color-text-secondary);
   margin-bottom: 2px;
 }
 
 .timeline-item.is-active .timeline-label {
-  color: #2563eb;
+  color: var(--color-primary-500);
   font-weight: 600;
 }
 
 .timeline-meta {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
 }
 
 .timeline-item.is-active .timeline-meta {
-  color: #60a5fa;
+  color: var(--color-primary-400);
 }
 
 /* 右侧仓库列表 */
 .repos-main {
   flex: 1;
-  background: #fff;
+  background: var(--color-bg-card);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -484,11 +484,11 @@ onUnmounted(() => {
 
 .repos-header {
   padding: 12px 16px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #f9fafb;
+  background: var(--color-bg-surface);
   flex-shrink: 0;
 }
 
@@ -503,12 +503,12 @@ onUnmounted(() => {
 }
 
 .repos-scroll::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: var(--color-scrollbar-thumb);
   border-radius: 3px;
 }
 
 .repos-scroll::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: var(--color-scrollbar-thumb-hover);
 }
 
 .repos-scroll::-webkit-scrollbar-track {
@@ -527,7 +527,7 @@ onUnmounted(() => {
   justify-content: center;
   gap: 8px;
   padding: 16px;
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
   font-size: 13px;
 }
 

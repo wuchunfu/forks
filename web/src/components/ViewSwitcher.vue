@@ -223,7 +223,7 @@ defineExpose({
   align-items: center;
   gap: 16px;
   padding: 12px 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--color-border);
   margin-bottom: 16px;
 }
 

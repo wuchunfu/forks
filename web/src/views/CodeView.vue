@@ -1255,7 +1255,7 @@ const onImageError = async (event) => {
       <div class="error-content">
         <p>图片加载失败</p>
         <p class="error-filename">${currentFileName.value}</p>
-        <div class="error-url" style="font-size: 10px; color: #999; word-break: break-all; margin-top: 8px;">
+        <div class="error-url" style="font-size: 10px; color: var(--color-text-tertiary); word-break: break-all; margin-top: 8px;">
           URL: ${imageUrl}
         </div>
       </div>
@@ -1271,7 +1271,7 @@ const onAudioLoaded = (event) => {
   if (detailsEl && audio.duration) {
     const duration = formatDuration(audio.duration)
     detailsEl.innerHTML = `
-      <span style="font-size: 12px; color: #656d76;">
+      <span style="font-size: 12px; color: var(--color-text-secondary);">
         时长: ${duration}
       </span>
     `
@@ -1285,7 +1285,7 @@ const onVideoLoaded = (event) => {
   if (detailsEl && video.duration && video.videoWidth && video.videoHeight) {
     const duration = formatDuration(video.duration)
     detailsEl.innerHTML = `
-      <span style="font-size: 12px; color: #656d76;">
+      <span style="font-size: 12px; color: var(--color-text-secondary);">
         ${video.videoWidth} × ${video.videoHeight} • 时长: ${duration}
       </span>
     `
@@ -1543,16 +1543,16 @@ onBeforeUnmount(() => {
 <style scoped>
 .code-viewer {
   height: 100%;
-  background: #f5f5f5;
+  background: var(--color-bg-page);
   display: flex;
   flex-direction: column;
 }
 
 /* 操作区域样式 */
 .operations-area {
-  background: #fff;
-  border-bottom: 1px solid #e0e0e0;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  background: var(--color-bg-card);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
 }
 
 .operations-content {
@@ -1581,16 +1581,16 @@ onBeforeUnmount(() => {
 /* 文件资源管理器 */
 .file-explorer {
   width: 280px;
-  background: #fff;
-  border-right: 1px solid #e0e0e0;
+  background: var(--color-bg-card);
+  border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
 }
 
 .explorer-header {
   height: 48px;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e0e0e0;
+  background: var(--color-bg-surface);
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1600,7 +1600,7 @@ onBeforeUnmount(() => {
 .explorer-title {
   font-size: 14px;
   font-weight: bold;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 .explorer-content {
@@ -1624,7 +1624,7 @@ onBeforeUnmount(() => {
 }
 
 .empty-text {
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 14px;
 }
 
@@ -1638,7 +1638,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: #fff;
+  background: var(--color-bg-card);
 }
 
 .code-content {
@@ -1654,7 +1654,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #999;
+  color: var(--color-text-tertiary);
 }
 
 .no-file-icon {
@@ -1674,8 +1674,8 @@ onBeforeUnmount(() => {
 
 .file-header {
   height: 48px;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e0e0e0;
+  background: var(--color-bg-surface);
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   padding: 0 16px;
@@ -1689,7 +1689,7 @@ onBeforeUnmount(() => {
 .file-name {
   font-size: 14px;
   font-weight: bold;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 .file-content {
@@ -1702,7 +1702,7 @@ onBeforeUnmount(() => {
 .code-editor {
   flex: 1;
   overflow: auto;
-  background: #1e1e1e;
+  background: var(--color-bg-page);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.03);
 }
@@ -1809,7 +1809,7 @@ onBeforeUnmount(() => {
 .markdown-viewer {
   flex: 1;
   overflow: auto;
-  background: #fff;
+  background: var(--color-bg-card);
   border-radius: 8px;
 }
 
@@ -1818,7 +1818,7 @@ onBeforeUnmount(() => {
   max-width: none;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   line-height: 1.6;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 /* Markdown 样式 */
@@ -1832,18 +1832,18 @@ onBeforeUnmount(() => {
   margin-bottom: 16px;
   font-weight: 600;
   line-height: 1.25;
-  color: #1f2328;
+  color: var(--color-text-primary);
 }
 
 .markdown-content h1 {
   font-size: 2rem;
-  border-bottom: 1px solid #d1d9e0;
+  border-bottom: 1px solid var(--color-border);
   padding-bottom: 10px;
 }
 
 .markdown-content h2 {
   font-size: 1.5rem;
-  border-bottom: 1px solid #d1d9e0;
+  border-bottom: 1px solid var(--color-border);
   padding-bottom: 8px;
 }
 
@@ -1861,7 +1861,7 @@ onBeforeUnmount(() => {
 
 .markdown-content h6 {
   font-size: 0.75rem;
-  color: #656d76;
+  color: var(--color-text-secondary);
 }
 
 .markdown-content p {
@@ -1881,12 +1881,12 @@ onBeforeUnmount(() => {
 .markdown-content blockquote {
   margin: 0 0 16px;
   padding: 0 1rem;
-  color: #656d76;
-  border-left: 0.25rem solid #d1d9e0;
+  color: var(--color-text-secondary);
+  border-left: 0.25rem solid var(--color-border);
 }
 
 .markdown-content code {
-  background: #f6f8fa;
+  background: var(--color-gray-100);
   border-radius: 6px;
   font-size: 85%;
   margin: 0;
@@ -1895,7 +1895,7 @@ onBeforeUnmount(() => {
 }
 
 .markdown-content pre {
-  background: #f6f8fa;
+  background: var(--color-gray-100);
   border-radius: 6px;
   font-size: 85%;
   line-height: 1.45;
@@ -1928,26 +1928,26 @@ onBeforeUnmount(() => {
 
 .markdown-content table th,
 .markdown-content table td {
-  border: 1px solid #d1d9e0;
+  border: 1px solid var(--color-border);
   padding: 6px 13px;
 }
 
 .markdown-content table th {
-  background-color: #f6f8fa;
+  background-color: var(--color-gray-100);
   font-weight: 600;
 }
 
 .markdown-content table tr {
-  background-color: #fff;
-  border-top: 1px solid #d1d9e0;
+  background-color: var(--color-bg-card);
+  border-top: 1px solid var(--color-border);
 }
 
 .markdown-content table tr:nth-child(2n) {
-  background-color: #f6f8fa;
+  background-color: var(--color-gray-100);
 }
 
 .markdown-content a {
-  color: #0969da;
+  color: var(--color-link);
   text-decoration: none;
 }
 
@@ -1962,7 +1962,7 @@ onBeforeUnmount(() => {
 }
 
 .markdown-content hr {
-  background-color: #d1d9e0;
+  background-color: var(--color-border);
   border: 0;
   height: 2px;
   margin: 24px 0;
@@ -1972,7 +1972,7 @@ onBeforeUnmount(() => {
 .image-viewer {
   flex: 1;
   overflow: auto;
-  background: #f8f9fa;
+  background: var(--color-bg-surface);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1987,7 +1987,7 @@ onBeforeUnmount(() => {
   max-width: 100%;
   max-height: 100%;
   padding: 20px;
-  min-height: 200px; /* 确保加载状态有足够高度 */
+  min-height: 200px;
 }
 
 .image-loading {
@@ -2003,18 +2003,18 @@ onBeforeUnmount(() => {
   max-height: calc(100vh - 200px);
   object-fit: contain;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  background: white;
-  border: 1px solid #e0e0e0;
+  box-shadow: var(--shadow-md);
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
 }
 
 .image-info {
   margin-top: 16px;
   text-align: center;
   padding: 8px 16px;
-  background: white;
+  background: var(--color-bg-card);
   border-radius: 6px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
 }
 
 .image-error {
@@ -2023,14 +2023,14 @@ onBeforeUnmount(() => {
   justify-content: center;
   width: 300px;
   height: 200px;
-  background: white;
-  border: 2px dashed #d1d9e0;
+  background: var(--color-bg-card);
+  border: 2px dashed var(--color-border);
   border-radius: 8px;
 }
 
 .image-error .error-content {
   text-align: center;
-  color: #656d76;
+  color: var(--color-text-secondary);
 }
 
 .image-error .error-content p {
@@ -2040,14 +2040,14 @@ onBeforeUnmount(() => {
 .image-error .error-filename {
   font-family: monospace;
   font-size: 12px;
-  color: #8b949e;
+  color: var(--color-text-tertiary);
 }
 
 /* 媒体播放器样式 */
 .media-viewer {
   flex: 1;
   overflow: auto;
-  background: #f8f9fa;
+  background: var(--color-bg-surface);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2068,9 +2068,9 @@ onBeforeUnmount(() => {
 .media-info {
   text-align: center;
   padding: 8px 16px;
-  background: white;
+  background: var(--color-bg-card);
   border-radius: 6px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
 }
 
 .audio-player {
@@ -2088,15 +2088,15 @@ onBeforeUnmount(() => {
   outline: none;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  background: #000;
+  background: var(--color-bg-page);
 }
 
 .media-details {
   text-align: center;
   padding: 6px 12px;
-  background: white;
+  background: var(--color-bg-card);
   border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
   min-height: 20px;
 }
 
@@ -2106,15 +2106,15 @@ onBeforeUnmount(() => {
   justify-content: center;
   width: 400px;
   height: 200px;
-  background: white;
-  border: 2px dashed #d1d9e0;
+  background: var(--color-bg-card);
+  border: 2px dashed var(--color-border);
   border-radius: 8px;
   margin-top: 16px;
 }
 
 .media-error .error-content {
   text-align: center;
-  color: #656d76;
+  color: var(--color-text-secondary);
 }
 
 .media-error .error-content p {
@@ -2124,18 +2124,18 @@ onBeforeUnmount(() => {
 .media-error .error-filename {
   font-family: monospace;
   font-size: 12px;
-  color: #8b949e;
+  color: var(--color-text-tertiary);
 }
 
 .media-error .error-hint {
   font-size: 11px;
-  color: #8b949e;
+  color: var(--color-text-tertiary);
   font-style: italic;
 }
 
 /* 媒体控件样式优化 */
 .audio-player::-webkit-media-controls-panel {
-  background: #f8f9fa;
+  background: var(--color-gray-100);
   border-radius: 8px;
 }
 
@@ -2147,7 +2147,7 @@ onBeforeUnmount(() => {
 .unsupported-viewer {
   flex: 1;
   overflow: auto;
-  background: #f8f9fa;
+  background: var(--color-bg-surface);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2171,10 +2171,10 @@ onBeforeUnmount(() => {
   justify-content: center;
   width: 80px;
   height: 80px;
-  background: white;
+  background: var(--color-bg-card);
   border-radius: 50%;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border: 2px solid #e0e0e0;
+  box-shadow: var(--shadow-md);
+  border: 2px solid var(--color-border);
 }
 
 .unsupported-info {
@@ -2187,10 +2187,10 @@ onBeforeUnmount(() => {
 
 .unsupported-message {
   padding: 12px 20px;
-  background: #fff3cd;
-  border: 1px solid #f0ad4e;
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning);
   border-radius: 6px;
-  color: #856404;
+  color: var(--color-warning);
 }
 
 .unsupported-actions {

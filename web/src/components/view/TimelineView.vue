@@ -360,7 +360,7 @@ const getLanguageColor = (language) => {
     'CSS': '#1572b6',
     'Shell': '#89e051'
   }
-  return colors[language] || '#666'
+  return colors[language] || 'var(--color-text-secondary)'
 }
 
 const formatNumber = (num) => {
@@ -507,11 +507,11 @@ onUnmounted(() => {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--color-bg-navbar);
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--color-border);
   padding: 12px 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-sm);
 }
 
 .timeline-nav__content {
@@ -543,7 +543,7 @@ onUnmounted(() => {
 }
 
 .timeline-nav__item:hover {
-  background: #f5f5f5;
+  background: var(--color-gray-100);
 }
 
 .timeline-nav__item--active {
@@ -595,7 +595,7 @@ onUnmounted(() => {
 .timeline-header__line {
   flex: 1;
   height: 2px;
-  background: linear-gradient(to right, transparent, #e0e0e0, transparent);
+  background: linear-gradient(to right, transparent, var(--color-border), transparent);
 }
 
 .timeline-header__content {
@@ -610,7 +610,7 @@ onUnmounted(() => {
   margin: 0;
   font-size: 24px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 .timeline-header__count {
@@ -659,8 +659,8 @@ onUnmounted(() => {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: white;
-  border: 3px solid #18a058;
+  background: var(--color-bg-card);
+  border: 3px solid var(--color-success);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -673,7 +673,7 @@ onUnmounted(() => {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #18a058;
+  background: var(--color-success);
 }
 
 .timeline-item:hover .timeline-dot {
@@ -684,7 +684,7 @@ onUnmounted(() => {
 .timeline-connector {
   flex: 1;
   width: 2px;
-  background: linear-gradient(to bottom, #18a058 0%, transparent 100%);
+  background: linear-gradient(to bottom, var(--color-success) 0%, transparent 100%);
   margin-top: 4px;
   min-height: 40px;
 }
@@ -694,15 +694,15 @@ onUnmounted(() => {
   position: relative;
   margin-left: 20px;
   padding: 20px;
-  background: white;
-  border: 1px solid #e8e8e8;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-sm);
   transition: all 0.3s ease;
 }
 
 .timeline-card:hover {
-  border-color: #18a058;
+  border-color: var(--color-success);
   box-shadow: 0 8px 24px rgba(24, 160, 88, 0.12);
   transform: translateX(4px);
 }
@@ -716,19 +716,19 @@ onUnmounted(() => {
   height: 0;
   border-style: solid;
   border-width: 6px 8px 6px 0;
-  border-color: transparent #e8e8e8 transparent transparent;
+  border-color: transparent var(--color-border) transparent transparent;
   transition: border-color 0.3s ease;
 }
 
 .timeline-card:hover::before {
-  border-color: transparent #18a058 transparent transparent;
+  border-color: transparent var(--color-success) transparent transparent;
 }
 
 .timeline-card__date {
   position: absolute;
   top: -12px;
   left: 16px;
-  background: white;
+  background: var(--color-bg-card);
   padding: 0 8px;
 }
 
@@ -780,7 +780,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 4px;
   font-size: 13px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .language-dot {

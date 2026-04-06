@@ -88,7 +88,7 @@ const props = defineProps({
   },
   textColor: {
     type: String,
-    default: '#666666'
+    default: 'var(--color-text-secondary)'
   },
   iconBg: {
     type: String,

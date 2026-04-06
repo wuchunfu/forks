@@ -468,7 +468,7 @@ const getLanguageColor = (language) => {
     'CSS': '#1572b6',
     'Shell': '#89e051'
   }
-  return colors[language] || '#666'
+  return colors[language] || 'var(--color-text-secondary)'
 }
 
 const formatNumber = (num) => {
@@ -624,7 +624,7 @@ const batchDelete = () => {
 }
 
 .list-view__table {
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--color-border-light);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -632,14 +632,14 @@ const batchDelete = () => {
 .list-view__header {
   display: flex;
   background: #fafafa;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .list-view__header-cell {
   padding: 12px 16px;
   font-weight: 600;
   color: #333;
-  border-right: 1px solid #f0f0f0;
+  border-right: 1px solid var(--color-border-light);
   display: flex;
   align-items: center;
   flex-shrink: 0;
@@ -668,7 +668,7 @@ const batchDelete = () => {
 
 .list-view__row {
   display: flex;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--color-border-light);
   transition: background-color 0.2s;
 }
 
@@ -690,7 +690,7 @@ const batchDelete = () => {
 
 .list-view__cell {
   padding: 12px 16px;
-  border-right: 1px solid #f0f0f0;
+  border-right: 1px solid var(--color-border-light);
   display: flex;
   align-items: center;
   min-height: 48px;
@@ -731,7 +731,7 @@ const batchDelete = () => {
   align-items: center;
   gap: 4px;
   font-size: 14px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .language-cell {

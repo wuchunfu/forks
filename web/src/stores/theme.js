@@ -13,9 +13,10 @@ export const useThemeStore = defineStore('theme', () => {
   // 主题模式: 'light' | 'dark' | 'auto'
   const mode = ref(localStorage.getItem('forks-theme') || 'light')
 
-  // 监听主题变化并持久化
+  // 监听主题变化并持久化 + 同步 DOM
   watch(mode, (newMode) => {
     localStorage.setItem('forks-theme', newMode)
+    initTheme()
   })
 
   /**

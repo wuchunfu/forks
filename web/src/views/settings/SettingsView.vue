@@ -965,7 +965,7 @@ onMounted(() => {
   width: 18px;
   left: 3px;
   bottom: 3px;
-  background-color: white;
+  background-color: var(--color-bg-card);
   transition: 0.2s;
   border-radius: 50%;
 }

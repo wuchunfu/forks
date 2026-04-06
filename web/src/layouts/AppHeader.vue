@@ -20,8 +20,20 @@
         <span class="page-title">{{ currentPageTitle }}</span>
       </div>
 
-      <!-- 右侧: 用户 -->
+      <!-- 右侧: 主题切换 + 用户 -->
       <div class="header-right">
+        <!-- 主题切换按钮 -->
+        <button
+          class="header-action-btn theme-toggle-btn"
+          @click="themeStore.toggleTheme()"
+          :aria-label="isDark ? '切换到亮色模式' : '切换到暗色模式'"
+        >
+          <n-icon size="20">
+            <SunnyOutline v-if="isDark" />
+            <MoonOutline v-else />
+          </n-icon>
+        </button>
+
         <!-- 用户信息 -->
         <div class="header-user">
           <n-dropdown
@@ -70,7 +82,8 @@
 import { ref, computed, h } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NDropdown, NIcon, useMessage } from 'naive-ui'
-import { LogOutOutline } from '@vicons/ionicons5'
+import { LogOutOutline, SunnyOutline, MoonOutline } from '@vicons/ionicons5'
+import { useThemeStore } from '@/stores/theme'
 
 // Props
 const props = defineProps({
@@ -87,6 +100,8 @@ const emit = defineEmits(['toggle-sidebar', 'toggle-mobile-sidebar'])
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const themeStore = useThemeStore()
+const isDark = computed(() => themeStore.getCurrentTheme() === 'dark')
 
 // 状态
 const userName = ref('Forks')
@@ -111,7 +126,7 @@ const userMenuOptions = [
     icon: () => h(NIcon, null, { default: () => h(LogOutOutline) }),
     props: {
       style: {
-        color: 'var(--color-red-500)'
+        color: 'var(--color-error-500)'
       }
     }
   }
@@ -300,7 +315,7 @@ const handleLogout = () => {
 .user-avatar {
   width: 32px;
   height: 32px;
-  background: linear-gradient(135deg, var(--color-primary) 0%, #3B82F6 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-500) 100%);
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;

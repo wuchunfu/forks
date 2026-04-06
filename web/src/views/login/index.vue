@@ -110,7 +110,7 @@ async function onLogin() {
   bottom: 0;
 }
 .login-card {
-  background: #fff;
+  background: var(--color-bg-page);
   border-radius: 18px;
   box-shadow: 0 8px 32px 0 rgba(60, 60, 60, 0.18);
   padding: 48px 40px 32px 40px;
@@ -144,7 +144,7 @@ async function onLogin() {
 .login-extra {
   margin-top: 18px;
   text-align: center;
-  color: #888;
+  color: var(--color-text-tertiary);
   font-size: 15px;
 }
 </style>

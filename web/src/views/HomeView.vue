@@ -741,6 +741,10 @@ watch([searchQuery, selectedStatus, selectedAuthor], () => {
   border: none;
 }
 
+.welcome-icon {
+  flex-shrink: 0;
+}
+
 .welcome-header {
   display: flex;
   align-items: center;
