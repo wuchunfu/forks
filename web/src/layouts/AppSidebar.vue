@@ -85,6 +85,28 @@
           </router-link>
         </li>
 
+        <!-- 任务 -->
+        <li class="nav-item">
+          <router-link
+            to="/tasks"
+            class="nav-link"
+            :class="{ 'nav-link-active': isActiveRoute('/tasks') }"
+            :title="collapsed ? '任务' : ''"
+          >
+            <div class="nav-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <line x1="8" y1="8" x2="16" y2="8"/>
+                <line x1="8" y1="12" x2="16" y2="12"/>
+                <line x1="8" y1="16" x2="12" y2="16"/>
+              </svg>
+            </div>
+            <transition name="nav-text">
+              <span v-show="!collapsed" class="nav-text">任务</span>
+            </transition>
+          </router-link>
+        </li>
+
         <!-- 活动记录 -->
         <li class="nav-item">
           <router-link

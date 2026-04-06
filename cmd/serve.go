@@ -58,6 +58,9 @@ var (
 	// 运行时代理配置管理
 	currentProxyConfig models.ProxyConfig
 	proxyConfigMutex   sync.RWMutex
+
+	// 任务取消信号：key 为任务类型（如 "batch_pull"），value 为 close channel
+	taskCancelChans sync.Map // map[string]chan struct{}
 )
 
 // ScanTask 扫描任务状态
@@ -72,6 +75,14 @@ type ScanTask struct {
 	MissingRepos  []gin.H
 	Error         string
 	StartTime     time.Time
+}
+
+// RepoInfo 仓库基本信息（批量操作用）
+type RepoInfo struct {
+	ID     int
+	Author string
+	Repo   string
+	Source string
 }
 
 // generateToken 生成随机token
@@ -336,11 +347,74 @@ func sseAuthMiddleware() gin.HandlerFunc {
 			}
 		}
 
+		// tasks-stream 路径支持通过 query 参数 token 认证
+		if strings.Contains(path, "tasks-stream") {
+			queryTok := c.Query("token")
+			if token == "" || queryTok == token {
+				log.Printf("✅ [SSE认证] tasks-stream token 认证成功")
+				c.Next()
+				return
+			}
+		}
+
 		// 认证失败，对于SSE返回错误事件
 		log.Printf("❌ [SSE认证] 认证失败")
 		c.Header("Content-Type", "text/event-stream")
 		c.SSEvent("error", gin.H{"message": "认证失败"})
 		c.Abort()
+	}
+}
+
+// tasksStreamSSE 任务列表 SSE 推送
+func tasksStreamSSE(c *gin.Context) {
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("Access-Control-Allow-Origin", "*")
+
+	// 立即发送连接成功事件
+	c.SSEvent("connected", gin.H{"message": "已连接"})
+	c.Writer.Flush()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		// 检查客户端是否断开
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+
+		// 查询所有任务概要（只查运行中和暂停的，用于实时更新）
+		rows, err := common.Db.Query(`SELECT id, type, status, total, success_count, fail_count, updated_at FROM tasks ORDER BY id DESC LIMIT 50`)
+		if err != nil {
+			continue
+		}
+
+		var tasks []gin.H
+		for rows.Next() {
+			var id int64
+			var taskType, status string
+			var total, successCount, failCount int
+			var updatedAt sql.NullString
+			if err := rows.Scan(&id, &taskType, &status, &total, &successCount, &failCount, &updatedAt); err == nil {
+				tasks = append(tasks, gin.H{
+					"id":             id,
+					"type":           taskType,
+					"status":         status,
+					"total":          total,
+					"success_count":  successCount,
+					"fail_count":     failCount,
+					"updated_at":     updatedAt.String,
+				})
+			}
+		}
+		rows.Close()
+
+		c.SSEvent("tasks", gin.H{"tasks": tasks})
+		c.Writer.Flush()
 	}
 }
 
@@ -720,6 +794,16 @@ func setupRoutes(r *gin.Engine) {
 		api.GET("/token", getTokenInfo)
 		api.POST("/token", updateTokenInfo)
 
+		// 任务管理接口
+		api.GET("/tasks", getTaskList)
+		api.GET("/tasks/:id", getTaskDetail)
+		api.DELETE("/tasks/:id", deleteTask)
+		api.DELETE("/tasks", clearCompletedTasks)
+		api.POST("/tasks/:id/pause", pauseTask)
+		api.POST("/tasks/:id/resume", resumeTask)
+		api.POST("/tasks/:id/cancel", cancelTask)
+		api.POST("/tasks/:id/retry", retryTask)
+
 		// Git 镜像准备接口（供 fclone 调用）
 		api.POST("/git/prepare", prepareGitMirror)
 	}
@@ -733,6 +817,7 @@ func setupRoutes(r *gin.Engine) {
 		sseApi.GET("/repos/batch-pull-status", batchPullSSE)
 		sseApi.GET("/repos/scan-status", scanReposSSE)
 		sseApi.GET("/repos/batch-clone-status", batchCloneSSE)
+		sseApi.GET("/tasks-stream", tasksStreamSSE)
 	}
 
 	// MCP 路由 — Streamable HTTP，复用 Bearer Token 认证
@@ -1520,6 +1605,10 @@ var serveCmd = &cobra.Command{
 
 		// 设置路由
 		setupRoutes(r)
+
+		// 恢复启动时未完成的任务
+		// 恢复未完成的任务
+		resumeRunningTasks()
 
 		// 打印访问信息
 		url := fmt.Sprintf("http://%s:%d?token=%s", address, port, token)
@@ -2750,71 +2839,25 @@ func pullRepoSSE(c *gin.Context) {
 }
 
 // batchPullRepos 批量拉取所有已克隆仓库
+// batchPullRepos 批量拉取所有已克隆仓库（任务系统版）
 func batchPullRepos(c *gin.Context) {
 	log.Printf("🔄 [batchPullRepos] 开始批量拉取")
 
-	// 查询所有已克隆且有效的仓库数量
-	var total int
-	err := common.Db.QueryRow("SELECT COUNT(*) FROM repos WHERE is_cloned = 1 AND COALESCE(valid, 1) = 1").Scan(&total)
+	// 检查是否已有运行中或暂停的同类型任务
+	var existCount int
+	common.Db.QueryRow("SELECT COUNT(*) FROM tasks WHERE type = 'batch_pull' AND status IN ('running', 'paused')").Scan(&existCount)
+	if existCount > 0 {
+		c.JSON(409, gin.H{"code": 409, "message": "已有正在进行的批量拉取任务"})
+		return
+	}
+
+	// 查询所有已克隆且有效的仓库
+	rows, err := common.Db.Query("SELECT id, author, repo, url, source FROM repos WHERE is_cloned = 1 AND COALESCE(valid, 1) = 1")
 	if err != nil {
 		c.JSON(500, gin.H{"code": 500, "message": "查询数据库失败"})
 		return
 	}
-
-	if total == 0 {
-		c.JSON(200, gin.H{"code": 0, "message": "没有需要拉取的仓库", "data": gin.H{"total": 0}})
-		return
-	}
-
-	// 生成临时token并存入tempTokenStore供SSE认证使用
-	tempToken := generateToken()
-	tempTokenMutex.Lock()
-	tempTokenStore["batch_pull"] = tempToken
-	tempTokenMutex.Unlock()
-
-	c.JSON(200, gin.H{
-		"code":    0,
-		"message": fmt.Sprintf("开始批量拉取 %d 个仓库", total),
-		"data": gin.H{
-			"useSSE":    true,
-			"tempToken": tempToken,
-			"total":     total,
-		},
-	})
-}
-
-// batchPullSSE 批量拉取进度推送
-func batchPullSSE(c *gin.Context) {
-	log.Printf("🔄 [batchPullSSE] 客户端连接")
-
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("Access-Control-Allow-Origin", "*")
-
-	// SSE中间件已完成认证，直接开始业务逻辑
-	config, err := utils.ConfigInstance.ReadConfig()
-	if err != nil {
-		c.SSEvent("error", gin.H{"message": "读取配置失败"})
-		c.Writer.Flush()
-		return
-	}
-
-	// 从数据库查询所有已克隆且有效的仓库
-	rows, err := common.Db.Query("SELECT id, author, repo, url, source FROM repos WHERE is_cloned = 1 AND COALESCE(valid, 1) = 1")
-	if err != nil {
-		c.SSEvent("error", gin.H{"message": "查询数据库失败"})
-		c.Writer.Flush()
-		return
-	}
 	defer rows.Close()
-
-	type RepoInfo struct {
-		ID     int
-		Author string
-		Repo   string
-		Source string
-	}
 
 	var repos []RepoInfo
 	for rows.Next() {
@@ -2826,40 +2869,209 @@ func batchPullSSE(c *gin.Context) {
 	}
 
 	if len(repos) == 0 {
-		c.SSEvent("error", gin.H{"message": "没有需要拉取的仓库"})
+		c.JSON(200, gin.H{"code": 0, "message": "没有需要拉取的仓库", "data": gin.H{"total": 0}})
+		return
+	}
+
+	// 创建 task 记录
+	result, err := common.Db.Exec(`
+		INSERT INTO tasks (type, status, total, success_count, fail_count, created_at)
+		VALUES ('batch_pull', 'running', ?, 0, 0, strftime('%Y-%m-%d %H:%M:%S', 'now','localtime'))`, len(repos))
+	if err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": "创建任务失败"})
+		return
+	}
+	taskID, _ := result.LastInsertId()
+
+	// 为每个仓库创建 task_item
+	for _, r := range repos {
+		repoName := fmt.Sprintf("%s/%s", r.Author, r.Repo)
+		common.Db.Exec(`INSERT INTO task_items (task_id, repo_id, repo_name, status, created_at)
+			VALUES (?, ?, ?, 'pending', strftime('%Y-%m-%d %H:%M:%S', 'now','localtime'))`, taskID, r.ID, repoName)
+	}
+
+	// 启动 goroutine 执行实际拉取
+	cancelChan := make(chan struct{})
+	taskCancelChans.Store("batch_pull", cancelChan)
+	go executeBatchPullTask(taskID, repos, cancelChan)
+
+	c.JSON(200, gin.H{
+		"code":    0,
+		"message": fmt.Sprintf("开始批量拉取 %d 个仓库", len(repos)),
+		"data": gin.H{
+			"task_id": taskID,
+			"total":   len(repos),
+		},
+	})
+}
+
+// batchPullSSE 批量拉取进度推送（从 DB 轮询）
+func batchPullSSE(c *gin.Context) {
+	log.Printf("🔄 [batchPullSSE] 客户端连接")
+
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("Access-Control-Allow-Origin", "*")
+
+	// 查找正在运行或暂停的 batch_pull 任务
+	var taskID int64
+	err := common.Db.QueryRow("SELECT id FROM tasks WHERE type = 'batch_pull' AND status IN ('running', 'paused') ORDER BY id DESC LIMIT 1").Scan(&taskID)
+	if err != nil {
+		c.SSEvent("error", gin.H{"message": "没有正在进行的拉取任务"})
 		c.Writer.Flush()
 		return
 	}
 
-	total := len(repos)
-	pulled := 0
-	failed := 0
-
-	c.SSEvent("start", gin.H{"total": total, "message": fmt.Sprintf("开始拉取 %d 个仓库", total)})
+	c.SSEvent("start", gin.H{"task_id": taskID, "message": "连接成功"})
 	c.Writer.Flush()
 
-	for i, r := range repos {
-		repoPath := filepath.Join(config.StoreRootPath, r.Source, r.Author, r.Repo)
+	// 轮询 DB 读取进度
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
 
-		c.SSEvent("progress", gin.H{
-			"current": i + 1,
-			"total":   total,
-			"repo":    fmt.Sprintf("%s/%s", r.Author, r.Repo),
-			"message": fmt.Sprintf("[%d/%d] 正在拉取 %s/%s ...", i+1, total, r.Author, r.Repo),
+	lastProcessed := 0
+
+	for range ticker.C {
+		// 检查客户端是否断开
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+
+		// 查询任务状态
+		var status string
+		var total, successCount, failCount int
+		err := common.Db.QueryRow(`SELECT status, total, success_count, fail_count FROM tasks WHERE id = ?`, taskID).Scan(&status, &total, &successCount, &failCount)
+		if err != nil {
+			continue
+		}
+
+		// 查询新处理的 task_items（从 lastProcessed 开始）
+		rows, err := common.Db.Query(`SELECT id, repo_name, status, message FROM task_items WHERE task_id = ? AND id > ? ORDER BY id`, taskID, lastProcessed)
+		if err != nil {
+			continue
+		}
+
+		for rows.Next() {
+			var itemID int
+			var repoName, itemStatus string
+			var message sql.NullString
+			if err := rows.Scan(&itemID, &repoName, &itemStatus, &message); err == nil {
+				msg := ""
+				if message.Valid {
+					msg = message.String
+				}
+				c.SSEvent("progress", gin.H{
+					"task_id":  taskID,
+					"repo":     repoName,
+					"status":   itemStatus,
+					"message":  msg,
+					"current":  successCount + failCount,
+					"total":    total,
+				})
+				c.Writer.Flush()
+				if itemID > lastProcessed {
+					lastProcessed = itemID
+				}
+			}
+		}
+		rows.Close()
+
+		// 推送整体进度
+		c.SSEvent("summary", gin.H{
+			"task_id":       taskID,
+			"total":         total,
+			"success_count": successCount,
+			"fail_count":    failCount,
+			"status":        status,
 		})
 		c.Writer.Flush()
 
-		// 检查本地仓库是否存在
-		if _, err := os.Stat(repoPath); os.IsNotExist(err) {
-			failed++
-			c.SSEvent("progress", gin.H{
-				"current": i + 1,
-				"total":   total,
-				"repo":    fmt.Sprintf("%s/%s", r.Author, r.Repo),
-				"message": fmt.Sprintf("[%d/%d] ⚠️ %s/%s 本地仓库不存在，跳过", i+1, total, r.Author, r.Repo),
-				"failed":  true,
+		// 任务完成，发送 complete 事件后关闭
+		if status == "completed" || status == "failed" || status == "cancelled" {
+			c.SSEvent("complete", gin.H{
+				"task_id":       taskID,
+				"total":         total,
+				"success_count": successCount,
+				"fail_count":    failCount,
+				"message":       fmt.Sprintf("批量拉取完成! 成功: %d, 失败: %d, 总计: %d", successCount, failCount, total),
 			})
 			c.Writer.Flush()
+			return
+		}
+	}
+}
+
+// executeBatchPullTask 执行批量拉取任务的核心逻辑
+func executeBatchPullTask(taskID int64, repos []RepoInfo, cancelChan chan struct{}) {
+	defer taskCancelChans.Delete("batch_pull")
+
+	config, err := utils.ConfigInstance.ReadConfig()
+	if err != nil {
+		common.Db.Exec(`UPDATE tasks SET status = 'failed', updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
+		return
+	}
+
+	for i, r := range repos {
+		repoName := fmt.Sprintf("%s/%s", r.Author, r.Repo)
+
+		// 检查任务是否被取消
+		select {
+		case <-cancelChan:
+			common.Db.Exec(`UPDATE task_items SET status = 'cancelled', message = '任务已取消' WHERE task_id = ? AND status IN ('pending', 'running')`, taskID)
+			common.Db.Exec(`UPDATE tasks SET status = 'cancelled', updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
+			return
+		default:
+		}
+
+		// 从 DB 检查状态（处理暂停）
+		var currentStatus string
+		common.Db.QueryRow("SELECT status FROM tasks WHERE id = ?", taskID).Scan(&currentStatus)
+		if currentStatus == "paused" {
+			// 阻塞等待：要么恢复，要么取消
+			for {
+				time.Sleep(2 * time.Second)
+				select {
+				case <-cancelChan:
+					common.Db.Exec(`UPDATE task_items SET status = 'cancelled', message = '任务已取消' WHERE task_id = ? AND status IN ('pending', 'running')`, taskID)
+					common.Db.Exec(`UPDATE tasks SET status = 'cancelled', updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
+					return
+				default:
+				}
+				common.Db.QueryRow("SELECT status FROM tasks WHERE id = ?", taskID).Scan(&currentStatus)
+				if currentStatus == "running" {
+					break // 恢复执行
+				}
+				if currentStatus == "cancelled" {
+					common.Db.Exec(`UPDATE task_items SET status = 'cancelled', message = '任务已取消' WHERE task_id = ? AND status IN ('pending', 'running')`, taskID)
+					return
+				}
+			}
+		}
+		if currentStatus == "cancelled" {
+			return
+		}
+
+		// 检查该 item 是否已完成（retry 场景跳过已成功的）
+		var itemStatus string
+		common.Db.QueryRow("SELECT status FROM task_items WHERE task_id = ? AND repo_name = ?", taskID, repoName).Scan(&itemStatus)
+		if itemStatus == "success" {
+			continue // 跳过已成功的 item
+		}
+
+		repoPath := filepath.Join(config.StoreRootPath, r.Source, r.Author, r.Repo)
+
+		// 更新 task_item 为 running
+		common.Db.Exec(`UPDATE task_items SET status = 'running', message = ? WHERE task_id = ? AND repo_name = ?`,
+			fmt.Sprintf("正在拉取 %s ...", repoName), taskID, repoName)
+
+		// 检查本地仓库是否存在
+		if _, err := os.Stat(repoPath); os.IsNotExist(err) {
+			common.Db.Exec(`UPDATE task_items SET status = 'failed', message = ? WHERE task_id = ? AND repo_name = ?`,
+				"本地仓库不存在，跳过", taskID, repoName)
+			common.Db.Exec(`UPDATE tasks SET fail_count = fail_count + 1, updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
 			continue
 		}
 
@@ -2874,19 +3086,13 @@ func batchPullSSE(c *gin.Context) {
 
 		if fetchErr != nil {
 			restoreProxy()
-			failed++
 			errMsg := strings.TrimSpace(string(fetchOutput))
 			if errMsg == "" {
 				errMsg = fetchErr.Error()
 			}
-			c.SSEvent("progress", gin.H{
-				"current": i + 1,
-				"total":   total,
-				"repo":    fmt.Sprintf("%s/%s", r.Author, r.Repo),
-				"message": fmt.Sprintf("[%d/%d] ❌ %s/%s fetch 失败: %s", i+1, total, r.Author, r.Repo, errMsg),
-				"failed":  true,
-			})
-			c.Writer.Flush()
+			common.Db.Exec(`UPDATE task_items SET status = 'failed', message = ? WHERE task_id = ? AND repo_name = ?`,
+				"fetch 失败: "+errMsg, taskID, repoName)
+			common.Db.Exec(`UPDATE tasks SET fail_count = fail_count + 1, updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
 			continue
 		}
 
@@ -2896,15 +3102,9 @@ func batchPullSSE(c *gin.Context) {
 		branchOutput, branchErr := branchCmd.Output()
 		if branchErr != nil {
 			restoreProxy()
-			failed++
-			c.SSEvent("progress", gin.H{
-				"current": i + 1,
-				"total":   total,
-				"repo":    fmt.Sprintf("%s/%s", r.Author, r.Repo),
-				"message": fmt.Sprintf("[%d/%d] ❌ %s/%s 获取分支失败", i+1, total, r.Author, r.Repo),
-				"failed":  true,
-			})
-			c.Writer.Flush()
+			common.Db.Exec(`UPDATE task_items SET status = 'failed', message = ? WHERE task_id = ? AND repo_name = ?`,
+				"获取分支失败", taskID, repoName)
+			common.Db.Exec(`UPDATE tasks SET fail_count = fail_count + 1, updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
 			continue
 		}
 		currentBranch := strings.TrimSpace(string(branchOutput))
@@ -2916,40 +3116,226 @@ func batchPullSSE(c *gin.Context) {
 		resetCmd.CombinedOutput()
 
 		restoreProxy()
-		pulled++
 
 		// 更新 last_pulled_at
 		common.Db.Exec("UPDATE repos SET last_pulled_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?", r.ID)
 
-		c.SSEvent("progress", gin.H{
-			"current": i + 1,
-			"total":   total,
-			"repo":    fmt.Sprintf("%s/%s", r.Author, r.Repo),
-			"message": fmt.Sprintf("[%d/%d] ✅ %s/%s 拉取完成", i+1, total, r.Author, r.Repo),
-		})
-		c.Writer.Flush()
+		common.Db.Exec(`UPDATE task_items SET status = 'success', message = ? WHERE task_id = ? AND repo_name = ?`,
+			"拉取完成", taskID, repoName)
+		common.Db.Exec(`UPDATE tasks SET success_count = success_count + 1, updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
 
 		// 每个仓库之间间隔 1 秒，避免触发平台限流
-		if i < total-1 {
+		if i < len(repos)-1 {
 			time.Sleep(1 * time.Second)
 		}
 	}
 
-	// 清理 token
-	tempTokenMutex.Lock()
-	delete(tempTokenStore, "batch_pull")
-	tempTokenMutex.Unlock()
-
-	c.SSEvent("complete", gin.H{
-		"message": fmt.Sprintf("批量拉取完成! 成功: %d, 失败: %d, 总计: %d", pulled, failed, total),
-		"total":   total,
-		"pulled":  pulled,
-		"failed":  failed,
-	})
-	c.Writer.Flush()
+	// 任务完成
+	common.Db.Exec(`UPDATE tasks SET status = 'completed', updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
 }
 
-// scanRepos 扫描本地文件系统中的Git仓库（异步）
+// restartBatchPullTask 从 DB 加载 pending items 并启动 goroutine 执行（用于 resume 和 startup 恢复）
+func restartBatchPullTask(taskID int64) {
+	// 将 running 的 task_items 回退为 pending（上次中断的）
+	common.Db.Exec(`UPDATE task_items SET status = 'pending', message = '' WHERE task_id = ? AND status = 'running'`, taskID)
+
+	// 从 task_items 加载 pending 的 repo_id，再从 repos 表查详情
+	rows, err := common.Db.Query(`SELECT ti.repo_id, r.author, r.repo, r.source FROM task_items ti
+		JOIN repos r ON ti.repo_id = r.id
+		WHERE ti.task_id = ? AND ti.status = 'pending' ORDER BY ti.id`, taskID)
+	if err != nil {
+		log.Printf("❌ [恢复任务] 查询 task_items 失败: %v", err)
+		common.Db.Exec(`UPDATE tasks SET status = 'failed', updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
+		return
+	}
+	var repos []RepoInfo
+	for rows.Next() {
+		var r RepoInfo
+		if err := rows.Scan(&r.ID, &r.Author, &r.Repo, &r.Source); err == nil {
+			repos = append(repos, r)
+		}
+	}
+	rows.Close()
+
+	if len(repos) == 0 {
+		// 没有 pending items，直接标记完成
+		common.Db.Exec(`UPDATE tasks SET status = 'completed', updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
+		return
+	}
+
+	// 重置任务状态
+	common.Db.Exec(`UPDATE tasks SET status = 'running', fail_count = 0, updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
+
+	cancelChan := make(chan struct{})
+	taskCancelChans.Store("batch_pull", cancelChan)
+	go executeBatchPullTask(taskID, repos, cancelChan)
+}
+
+// resumeRunningTasks 服务启动时恢复未完成的任务
+func resumeRunningTasks() {
+	rows, err := common.Db.Query(`SELECT id FROM tasks WHERE type = 'batch_pull' AND status IN ('running', 'paused')`)
+	if err != nil {
+		return
+	}
+	var taskIDs []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err == nil {
+			taskIDs = append(taskIDs, id)
+		}
+	}
+	rows.Close()
+
+	for _, id := range taskIDs {
+		log.Printf("🔄 [启动恢复] 恢复任务 #%d", id)
+		restartBatchPullTask(id)
+	}
+}
+
+// pauseTask 暂停运行中的任务
+func pauseTask(c *gin.Context) {
+	id := c.Param("id")
+	var status, taskType string
+	err := common.Db.QueryRow("SELECT status, type FROM tasks WHERE id = ?", id).Scan(&status, &taskType)
+	if err != nil {
+		c.JSON(404, gin.H{"code": 404, "message": "任务不存在"})
+		return
+	}
+	if status != "running" {
+		c.JSON(400, gin.H{"code": 400, "message": "只能暂停运行中的任务"})
+		return
+	}
+	// 把当前 running 的 task_item 回退为 pending
+	common.Db.Exec(`UPDATE task_items SET status = 'pending', message = '' WHERE task_id = ? AND status = 'running'`, id)
+	common.Db.Exec(`UPDATE tasks SET status = 'paused', updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, id)
+	c.JSON(200, gin.H{"code": 0, "message": "任务已暂停"})
+}
+
+// resumeTask 恢复暂停的任务
+func resumeTask(c *gin.Context) {
+	id := c.Param("id")
+	var status, taskType string
+	err := common.Db.QueryRow("SELECT status, type FROM tasks WHERE id = ?", id).Scan(&status, &taskType)
+	if err != nil {
+		c.JSON(404, gin.H{"code": 404, "message": "任务不存在"})
+		return
+	}
+	if status != "paused" {
+		c.JSON(400, gin.H{"code": 400, "message": "只能恢复暂停中的任务"})
+		return
+	}
+
+	taskID, _ := strconv.ParseInt(id, 10, 64)
+
+	// 检查是否有活跃的 goroutine
+	if _, loaded := taskCancelChans.Load(taskType); loaded {
+		// goroutine 还在，只需改 DB 状态，goroutine 会自动检测
+		common.Db.Exec(`UPDATE tasks SET status = 'running', updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, id)
+	} else {
+		// goroutine 不存在（重启后），重新启动
+		restartBatchPullTask(taskID)
+	}
+
+	c.JSON(200, gin.H{"code": 0, "message": "任务已恢复"})
+}
+
+// cancelTask 取消运行中或暂停的任务
+func cancelTask(c *gin.Context) {
+	id := c.Param("id")
+	var status, taskType string
+	err := common.Db.QueryRow("SELECT status, type FROM tasks WHERE id = ?", id).Scan(&status, &taskType)
+	if err != nil {
+		c.JSON(404, gin.H{"code": 404, "message": "任务不存在"})
+		return
+	}
+	if status != "running" && status != "paused" {
+		c.JSON(400, gin.H{"code": 400, "message": "只能取消运行中或暂停的任务"})
+		return
+	}
+	// 更新 DB 状态
+	common.Db.Exec(`UPDATE tasks SET status = 'cancelled', updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, id)
+	common.Db.Exec(`UPDATE task_items SET status = 'cancelled', message = '任务已取消' WHERE task_id = ? AND status IN ('pending', 'running')`, id)
+	// 发送取消信号给 goroutine
+	if ch, ok := taskCancelChans.Load(taskType); ok {
+		close(ch.(chan struct{}))
+		taskCancelChans.Delete(taskType)
+	}
+	c.JSON(200, gin.H{"code": 0, "message": "任务已取消"})
+}
+
+// retryTask 重跑失败/取消/完成的任务，跳过已成功的 item
+func retryTask(c *gin.Context) {
+	id := c.Param("id")
+	var taskType, status string
+	var total, successCount int
+	var failCount int
+	err := common.Db.QueryRow("SELECT type, status, total, success_count, fail_count FROM tasks WHERE id = ?", id).Scan(&taskType, &status, &total, &successCount, &failCount)
+	if err != nil {
+		c.JSON(404, gin.H{"code": 404, "message": "任务不存在"})
+		return
+	}
+	if taskType != "batch_pull" {
+		c.JSON(400, gin.H{"code": 400, "message": "不支持的任务类型"})
+		return
+	}
+	if status == "running" || status == "paused" {
+		c.JSON(400, gin.H{"code": 400, "message": "任务正在进行中，无法重跑"})
+		return
+	}
+
+	// 检查是否有 running/paused 的同类型任务
+	var existCount int
+	common.Db.QueryRow("SELECT COUNT(*) FROM tasks WHERE type = ? AND status IN ('running', 'paused') AND id != ?", taskType, id).Scan(&existCount)
+	if existCount > 0 {
+		c.JSON(409, gin.H{"code": 409, "message": "已有同类型的运行中任务"})
+		return
+	}
+
+	// 将 failed/cancelled 的 task_items 重置为 pending
+	common.Db.Exec(`UPDATE task_items SET status = 'pending', message = '' WHERE task_id = ? AND status IN ('failed', 'cancelled')`, id)
+
+	// 重新计算 fail_count：查询当前 failed/cancelled 数量
+	var pendingCount int
+	common.Db.QueryRow("SELECT COUNT(*) FROM task_items WHERE task_id = ? AND status = 'pending'", id).Scan(&pendingCount)
+	if pendingCount == 0 {
+		c.JSON(200, gin.H{"code": 0, "message": "所有子任务已完成，无需重跑"})
+		return
+	}
+
+	// 重置任务状态
+	common.Db.Exec(`UPDATE tasks SET status = 'running', fail_count = 0, updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, id)
+
+	// 加载该任务对应的仓库信息
+	rows, err := common.Db.Query(`SELECT ti.repo_id, r.author, r.repo, r.source FROM task_items ti
+		JOIN repos r ON ti.repo_id = r.id
+		WHERE ti.task_id = ? AND ti.status = 'pending' ORDER BY ti.id`, id)
+	if err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": "查询任务项失败"})
+		return
+	}
+	var repos []RepoInfo
+	for rows.Next() {
+		var r RepoInfo
+		if err := rows.Scan(&r.ID, &r.Author, &r.Repo, &r.Source); err == nil {
+			repos = append(repos, r)
+		}
+	}
+	rows.Close()
+
+	if len(repos) == 0 {
+		c.JSON(200, gin.H{"code": 0, "message": "没有需要重跑的子任务"})
+		return
+	}
+
+	// 启动 goroutine 执行
+	cancelChan := make(chan struct{})
+	taskCancelChans.Store(taskType, cancelChan)
+
+	taskIDInt, _ := strconv.ParseInt(id, 10, 64)
+	go executeBatchPullTask(taskIDInt, repos, cancelChan)
+
+	c.JSON(200, gin.H{"code": 0, "message": fmt.Sprintf("任务已重新开始，待处理 %d 项", len(repos))})
+}
 func scanRepos(c *gin.Context) {
 	log.Println("🔍 [扫描] 收到扫描请求")
 
@@ -3907,6 +4293,223 @@ func pktLineEncode(data string) []byte {
 }
 
 // ====================== Git Smart HTTP 结束 ======================
+
+// ====================== 任务系统 ======================
+
+// getTaskList 获取任务列表
+func getTaskList(c *gin.Context) {
+	page := 1
+	pageSize := 20
+
+	if p := c.Query("page"); p != "" {
+		if val, err := strconv.Atoi(p); err == nil && val > 0 {
+			page = val
+		}
+	}
+	if ps := c.Query("page_size"); ps != "" {
+		if val, err := strconv.Atoi(ps); err == nil && val > 0 && val <= 100 {
+			pageSize = val
+		}
+	}
+
+	offset := (page - 1) * pageSize
+
+	// 构建 WHERE 条件
+	args := []interface{}{}
+	where := "WHERE 1=1"
+	if status := c.Query("status"); status != "" {
+		where += " AND status = ?"
+		args = append(args, status)
+	}
+
+	// 获取总数
+	var total int
+	countSQL := "SELECT COUNT(*) FROM tasks " + where
+	err := common.Db.QueryRow(countSQL, args...).Scan(&total)
+	if err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": "查询任务总数失败"})
+		return
+	}
+
+	// 获取列表
+	querySQL := `SELECT id, type, status, total, success_count, fail_count, error, created_at, updated_at
+		FROM tasks ` + where + ` ORDER BY created_at DESC LIMIT ? OFFSET ?`
+	queryArgs := append(args, pageSize, offset)
+	rows, err := common.Db.Query(querySQL, queryArgs...)
+	if err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": "查询任务列表失败"})
+		return
+	}
+	defer rows.Close()
+
+	tasks := []map[string]interface{}{}
+	for rows.Next() {
+		var id int64
+		var taskType, status string
+		var totalItems, successCount, failCount int
+		var errMsg sql.NullString
+		var createdAt string
+		var updatedAt sql.NullString
+
+		if err := rows.Scan(&id, &taskType, &status, &totalItems, &successCount, &failCount, &errMsg, &createdAt, &updatedAt); err != nil {
+			continue
+		}
+
+		task := map[string]interface{}{
+			"id":            id,
+			"type":          taskType,
+			"status":        status,
+			"total":         totalItems,
+			"success_count": successCount,
+			"fail_count":    failCount,
+			"created_at":    createdAt,
+		}
+		if errMsg.Valid {
+			task["error"] = errMsg.String
+		}
+		if updatedAt.Valid {
+			task["updated_at"] = updatedAt.String
+		}
+		tasks = append(tasks, task)
+	}
+
+	c.JSON(200, gin.H{
+		"code": 0,
+		"data": gin.H{
+			"list":  tasks,
+			"total": total,
+			"page":  page,
+			"page_size": pageSize,
+		},
+	})
+}
+
+// getTaskDetail 获取任务详情（含 task_items）
+func getTaskDetail(c *gin.Context) {
+	id := c.Param("id")
+
+	// 查询任务
+	var taskID int64
+	var taskType, status string
+	var totalItems, successCount, failCount int
+	var errMsg sql.NullString
+	var createdAt string
+	var updatedAt sql.NullString
+
+	err := common.Db.QueryRow(`
+		SELECT id, type, status, total, success_count, fail_count, error, created_at, updated_at
+		FROM tasks WHERE id = ?`, id).Scan(&taskID, &taskType, &status, &totalItems, &successCount, &failCount, &errMsg, &createdAt, &updatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(404, gin.H{"code": 404, "message": "任务不存在"})
+		} else {
+			c.JSON(500, gin.H{"code": 500, "message": "查询任务失败"})
+		}
+		return
+	}
+
+	task := map[string]interface{}{
+		"id":            taskID,
+		"type":          taskType,
+		"status":        status,
+		"total":         totalItems,
+		"success_count": successCount,
+		"fail_count":    failCount,
+		"created_at":    createdAt,
+	}
+	if errMsg.Valid {
+		task["error"] = errMsg.String
+	}
+	if updatedAt.Valid {
+		task["updated_at"] = updatedAt.String
+	}
+
+	// 查询 task_items
+	rows, err := common.Db.Query(`
+		SELECT id, task_id, repo_id, repo_name, status, message, created_at
+		FROM task_items WHERE task_id = ? ORDER BY id`, id)
+	if err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": "查询任务子项失败"})
+		return
+	}
+	defer rows.Close()
+
+	items := []map[string]interface{}{}
+	for rows.Next() {
+		var itemID int64
+		var taskIDFk int64
+		var repoID sql.NullInt64
+		var repoName, itemStatus string
+		var message sql.NullString
+		var itemCreatedAt string
+
+		if err := rows.Scan(&itemID, &taskIDFk, &repoID, &repoName, &itemStatus, &message, &itemCreatedAt); err != nil {
+			continue
+		}
+
+		item := map[string]interface{}{
+			"id":         itemID,
+			"task_id":    taskIDFk,
+			"repo_name":  repoName,
+			"status":     itemStatus,
+			"created_at": itemCreatedAt,
+		}
+		if repoID.Valid {
+			item["repo_id"] = repoID.Int64
+		}
+		if message.Valid {
+			item["message"] = message.String
+		}
+		items = append(items, item)
+	}
+
+	task["items"] = items
+
+	c.JSON(200, gin.H{
+		"code": 0,
+		"data": task,
+	})
+}
+
+// deleteTask 删除任务及其 items
+func deleteTask(c *gin.Context) {
+	id := c.Param("id")
+
+	result, err := common.Db.Exec("DELETE FROM task_items WHERE task_id = ?", id)
+	if err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": "删除任务子项失败"})
+		return
+	}
+
+	result, err = common.Db.Exec("DELETE FROM tasks WHERE id = ?", id)
+	if err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": "删除任务失败"})
+		return
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		c.JSON(404, gin.H{"code": 404, "message": "任务不存在"})
+		return
+	}
+
+	c.JSON(200, gin.H{"code": 0, "message": "删除成功"})
+}
+
+// clearCompletedTasks 清空已完成的任务
+func clearCompletedTasks(c *gin.Context) {
+	// 先删除 task_items
+	common.Db.Exec(`DELETE FROM task_items WHERE task_id IN (SELECT id FROM tasks WHERE status IN ('completed', 'failed'))`)
+
+	result, err := common.Db.Exec(`DELETE FROM tasks WHERE status IN ('completed', 'failed')`)
+	if err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": "清空任务失败"})
+		return
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	c.JSON(200, gin.H{"code": 0, "message": fmt.Sprintf("已清空 %d 个已完成任务", rowsAffected)})
+}
 
 func init() {
 	rootCmd.AddCommand(serveCmd)

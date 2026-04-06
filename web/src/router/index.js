@@ -37,6 +37,12 @@ const router = createRouter({
           meta: { title: '系统设置', breadcrumb: [{ label: '系统设置' }] }
         },
         {
+          path: 'tasks',
+          name: 'tasks',
+          component: () => import('@/views/tasks/TasksView.vue'),
+          meta: { title: '任务管理', breadcrumb: [{ label: '任务管理' }] }
+        },
+        {
           path: 'activities',
           name: 'activities',
           component: () => import('@/views/activities/ActivitiesView.vue'),

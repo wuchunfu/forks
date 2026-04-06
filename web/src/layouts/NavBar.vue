@@ -54,6 +54,46 @@
           </template>
         </div>
         <div class="nav-right">
+          <!-- 任务图标 -->
+          <n-popover trigger="click" placement="bottom-end" :width="380" @update:show="handleTaskPopoverChange">
+            <template #trigger>
+              <n-badge :value="tasksStore.runningCount" :max="99" :show="tasksStore.runningCount > 0">
+                <n-button quaternary circle class="task-icon-btn">
+                  <template #icon>
+                    <n-icon size="20"><ListOutline /></n-icon>
+                  </template>
+                </n-button>
+              </n-badge>
+            </template>
+            <div class="task-popover">
+              <div class="task-popover-header">
+                <span class="task-popover-title">后台任务</span>
+                <n-button v-if="tasksStore.taskList.some(t => t.status === 'completed' || t.status === 'failed')" text size="tiny" @click="tasksStore.clearCompleted()">清空已完成</n-button>
+              </div>
+              <div v-if="tasksStore.loading && tasksStore.taskList.length === 0" class="task-popover-empty">加载中...</div>
+              <div v-else-if="tasksStore.taskList.length === 0" class="task-popover-empty">暂无任务</div>
+              <div v-else class="task-popover-list">
+                <div v-for="task in tasksStore.taskList.slice(0, 10)" :key="task.id" class="task-popover-item" @click="handleTaskClick(task)">
+                  <div class="task-item-left">
+                    <span class="task-item-type">{{ taskTypeName(task.type) }}</span>
+                    <n-progress
+                      v-if="task.status === 'running'"
+                      type="line"
+                      :percentage="task.total > 0 ? Math.round(((task.success_count + task.fail_count) / task.total) * 100) : 0"
+                      :show-indicator="false"
+                      status="info"
+                      style="width: 80px; margin-left: 8px;"
+                    />
+                  </div>
+                  <div class="task-item-right">
+                    <span :class="['task-item-status', `status-${task.status}`]">{{ taskStatusName(task.status) }}</span>
+                    <span class="task-item-time">{{ task.created_at }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </n-popover>
+
           <template v-if="!userInfo">
             <n-space align="center">
               <n-avatar
@@ -92,11 +132,14 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NLayoutHeader, NMenu, NInput, NButton, NAvatar, NBadge, NIcon, NDropdown, NSpace, useMessage } from 'naive-ui'
+import { NLayoutHeader, NMenu, NInput, NButton, NAvatar, NBadge, NIcon, NDropdown, NSpace, NPopover, NProgress, useMessage } from 'naive-ui'
 // import { useUserStore } from '@/stores/user'
 // import { storeToRefs } from 'pinia'
-import { SearchOutline } from '@vicons/ionicons5'
+import { SearchOutline, ListOutline } from '@vicons/ionicons5'
 import { getRepos } from '@/api/repos'
+import { useTasksStore } from '@/stores/tasks'
+
+const tasksStore = useTasksStore()
 
 // 防抖函数
 function debounce(func, wait) {
@@ -145,20 +188,52 @@ function checkLoginStatus() {
   }
 }
 
+// 任务相关辅助函数
+function taskTypeName(type) {
+  const map = { batch_pull: '一键拉取', batch_clone: '批量克隆', scan: '扫描仓库' }
+  return map[type] || type
+}
+
+function taskStatusName(status) {
+  const map = { pending: '等待中', running: '运行中', completed: '已完成', failed: '失败' }
+  return map[status] || status
+}
+
+function handleTaskPopoverChange(show) {
+  if (show) {
+    tasksStore.fetchTasks({ page_size: 10 })
+    tasksStore.startSSE()
+  } else {
+    tasksStore.stopSSE()
+  }
+}
+
+function handleTaskClick(task) {
+  // 如果有 running 任务，导航到首页仪表盘
+  if (task.status === 'running') {
+    router.push('/')
+  }
+}
+
 // 组件挂载时检查登录状态
 onMounted(() => {
   checkLoginStatus()
-  
+
   // 监听存储变化（跨标签页同步）
   window.addEventListener('storage', checkLoginStatus)
-  
+
   // 监听自定义登录事件
   window.addEventListener('userLoggedIn', checkLoginStatus)
+
+  // 初始加载任务列表
+  tasksStore.fetchTasks({ page_size: 10 })
+  tasksStore.startSSE()
 })
 
 onUnmounted(() => {
   window.removeEventListener('storage', checkLoginStatus)
   window.removeEventListener('userLoggedIn', checkLoginStatus)
+  tasksStore.stopSSE()
 })
 
 function goLogin() {
@@ -533,6 +608,82 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 18px;
+}
+
+.task-icon-btn {
+  color: #666;
+}
+.task-icon-btn:hover {
+  color: #333;
+}
+
+.task-popover {
+  max-height: 400px;
+  overflow-y: auto;
+}
+.task-popover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.task-popover-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+}
+.task-popover-empty {
+  text-align: center;
+  color: #999;
+  padding: 20px 0;
+  font-size: 13px;
+}
+.task-popover-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.task-popover-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.task-popover-item:hover {
+  background: #f5f6fa;
+}
+.task-item-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.task-item-type {
+  font-size: 13px;
+  color: #333;
+  font-weight: 500;
+}
+.task-item-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.task-item-status {
+  font-size: 12px;
+  font-weight: 500;
+}
+.task-item-status.status-running { color: #2080f0; }
+.task-item-status.status-completed { color: #18a058; }
+.task-item-status.status-failed { color: #d03050; }
+.task-item-status.status-pending { color: #999; }
+.task-item-time {
+  font-size: 11px;
+  color: #bbb;
 }
 
 .dropdown-arrow {

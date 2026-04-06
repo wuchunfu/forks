@@ -354,6 +354,109 @@ export function updateToken(data) {
   })
 }
 
+// 任务列表 SSE 连接
+export function tasksStreamSSE(onTasks, onError) {
+  const baseUrl = getApiBaseUrl()
+  const token = localStorage.getItem('token')
+  let url = `${baseUrl}/api/tasks-stream`
+  if (token) {
+    url += `?token=${encodeURIComponent(token)}`
+  }
+
+  console.log('[SSE] 连接任务列表流:', url)
+
+  const eventSource = new EventSource(url)
+
+  eventSource.addEventListener('connected', () => {
+    console.log('[SSE] 任务列表已连接')
+  })
+
+  eventSource.addEventListener('tasks', (event) => {
+    try {
+      const data = JSON.parse(event.data)
+      if (onTasks) onTasks(data.tasks || [])
+    } catch (e) {
+      console.error('[SSE] 解析任务数据失败:', e)
+    }
+  })
+
+  eventSource.addEventListener('error', (event) => {
+    const data = event.data ? JSON.parse(event.data) : { message: 'SSE连接错误' }
+    if (onError) onError(data)
+  })
+
+  eventSource.onerror = () => {
+    if (onError) onError({ message: '连接中断' })
+  }
+
+  return eventSource
+}
+
+// 获取任务列表
+export function getTaskList(params = {}) {
+  return request({
+    url: '/api/tasks',
+    method: 'get',
+    params
+  })
+}
+
+// 获取任务详情
+export function getTaskDetail(id) {
+  return request({
+    url: `/api/tasks/${id}`,
+    method: 'get'
+  })
+}
+
+// 删除任务
+export function deleteTask(id) {
+  return request({
+    url: `/api/tasks/${id}`,
+    method: 'delete'
+  })
+}
+
+// 暂停任务
+export function pauseTask(id) {
+  return request({
+    url: `/api/tasks/${id}/pause`,
+    method: 'post'
+  })
+}
+
+// 恢复任务
+export function resumeTask(id) {
+  return request({
+    url: `/api/tasks/${id}/resume`,
+    method: 'post'
+  })
+}
+
+// 取消任务
+export function cancelTask(id) {
+  return request({
+    url: `/api/tasks/${id}/cancel`,
+    method: 'post'
+  })
+}
+
+// 重跑任务
+export function retryTask(id) {
+  return request({
+    url: `/api/tasks/${id}/retry`,
+    method: 'post'
+  })
+}
+
+// 清空已完成任务
+export function clearCompletedTasks() {
+  return request({
+    url: '/api/tasks',
+    method: 'delete'
+  })
+}
+
 // 拉取仓库进度 SSE 连接
 export function pullRepoSSE(id, tempToken, onProgress, onComplete, onError) {
   const baseUrl = getApiBaseUrl()

@@ -96,6 +96,40 @@ var rootCmd = &cobra.Command{
 		// 兼容旧数据：添加 valid 字段
 		_, _ = common.Db.Exec(`ALTER TABLE repos ADD COLUMN valid INTEGER DEFAULT 1`)
 
+		// 创建任务表
+		createTasksTableSQL := `CREATE TABLE IF NOT EXISTS tasks (
+			"id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+			"type" TEXT NOT NULL,
+			"status" TEXT DEFAULT 'pending',
+			"total" INTEGER DEFAULT 0,
+			"success_count" INTEGER DEFAULT 0,
+			"fail_count" INTEGER DEFAULT 0,
+			"error" TEXT,
+			"created_at" TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now','localtime')),
+			"updated_at" TEXT
+		);`
+		_, err = common.Db.Exec(createTasksTableSQL)
+		if err != nil {
+			fmt.Printf("Failed to create tasks table: %v\n", err)
+			return
+		}
+
+		// 创建任务子项表
+		createTaskItemsTableSQL := `CREATE TABLE IF NOT EXISTS task_items (
+			"id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+			"task_id" INTEGER NOT NULL,
+			"repo_id" INTEGER,
+			"repo_name" TEXT NOT NULL,
+			"status" TEXT DEFAULT 'pending',
+			"message" TEXT,
+			"created_at" TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now','localtime'))
+		);`
+		_, err = common.Db.Exec(createTaskItemsTableSQL)
+		if err != nil {
+			fmt.Printf("Failed to create task_items table: %v\n", err)
+			return
+		}
+
 		fmt.Println("Table created successfully")
 
 		fmt.Println("Database connected successfully")

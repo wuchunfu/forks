@@ -260,48 +260,33 @@
       </n-card>
     </n-modal>
 
-    <!-- 批量拉取进度弹窗 -->
-    <n-modal v-model:show="showBatchPullProgress" :style="{ width: '500px' }" :closable="false" :maskClosable="false">
-      <n-card title="批量拉取进度" :bordered="false">
-        <div v-if="batchPullProgress">
-          <n-progress
-            type="line"
-            :percentage="batchPullProgress.total > 0 ? Math.round((batchPullProgress.current / batchPullProgress.total) * 100) : 0"
-            :status="batchPullProgress.completed ? 'success' : 'default'"
-          />
-
-          <n-space vertical style="margin-top: 16px">
-            <n-text>
-              {{ batchPullProgress.current || 0 }} / {{ batchPullProgress.total || 0 }}
-              <template v-if="batchPullProgress.repo">
-                - {{ batchPullProgress.repo }}
-              </template>
-            </n-text>
-            <n-text depth="3">{{ batchPullProgress.status }}</n-text>
-
-            <template v-if="batchPullProgress.completed">
-              <n-divider />
-              <n-space>
-                <n-tag type="success">成功: {{ batchPullProgress.pulled }}</n-tag>
-                <n-tag type="warning">失败: {{ batchPullProgress.failed }}</n-tag>
-              </n-space>
-            </template>
-          </n-space>
+    <!-- 当前运行中的任务 -->
+    <div v-if="currentRunningTask" class="running-task-section">
+      <div class="section-header">
+        <div class="section-title">当前任务</div>
+        <span :class="['task-status-badge', `status-${currentRunningTask.status}`]">
+          {{ taskStatusName(currentRunningTask.status) }}
+        </span>
+      </div>
+      <div class="running-task-card">
+        <div class="running-task-info">
+          <span class="running-task-type">{{ taskTypeName(currentRunningTask.type) }}</span>
+          <span class="running-task-progress">
+            {{ currentRunningTask.success_count + currentRunningTask.fail_count }} / {{ currentRunningTask.total }}
+          </span>
         </div>
-
-        <template #footer>
-          <n-space justify="end">
-            <n-button
-              v-if="batchPullProgress?.completed"
-              type="primary"
-              @click="showBatchPullProgress = false"
-            >
-              完成
-            </n-button>
-          </n-space>
-        </template>
-      </n-card>
-    </n-modal>
+        <n-progress
+          type="line"
+          :percentage="currentRunningTask.total > 0 ? Math.round(((currentRunningTask.success_count + currentRunningTask.fail_count) / currentRunningTask.total) * 100) : 0"
+          :show-indicator="false"
+          status="info"
+        />
+        <div class="running-task-counts">
+          <n-tag type="success" size="small">成功: {{ currentRunningTask.success_count }}</n-tag>
+          <n-tag type="warning" size="small">失败: {{ currentRunningTask.fail_count }}</n-tag>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -318,10 +303,11 @@
  * - 最近活动列表 (展示最近的 git 操作记录)
  * - 响应式设计，适配移动端和桌面端
  */
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, useModal } from 'naive-ui'
 import { useReposStore } from '@/stores/repos'
+import { useTasksStore } from '@/stores/tasks'
 import { getStats, getActivities } from '@/api/repos'
 import AddRepoModal from '@/components/AddRepoModal.vue'
 import BatchCloneModal from '@/components/BatchCloneModal.vue'
@@ -334,6 +320,7 @@ const router = useRouter()
 const message = useMessage()
 const modal = useModal()
 const reposStore = useReposStore()
+const tasksStore = useTasksStore()
 
 // 响应式数据
 const showAddRepoModal = ref(false)
@@ -344,8 +331,6 @@ const batchCloneLoading = ref(false)
 const showBatchCloneProgress = ref(false)
 const batchCloneProgress = ref(null)
 const batchPullLoading = ref(false)
-const showBatchPullProgress = ref(false)
-const batchPullProgress = ref(null)
 
 // 统计数据
 const statsData = ref({ total: 0, cloned: 0, notCloned: 0 })
@@ -549,62 +534,27 @@ const viewAllActivities = () => {
   router.push('/activities')
 }
 
-// 一键拉取所有已克隆仓库
+// 一键拉取所有已克隆仓库（任务系统版）
 const handleBatchPull = async () => {
   try {
     batchPullLoading.value = true
-    const { batchPullRepos, batchPullSSE } = await import('@/api/repos')
+    const { batchPullRepos } = await import('@/api/repos')
     const response = await batchPullRepos()
     const apiData = response.data
 
     if (apiData && apiData.code === 0) {
-      if (!apiData.data?.useSSE) {
+      if (!apiData.data?.task_id) {
         message.info(apiData.message || '没有需要拉取的仓库')
         batchPullLoading.value = false
         return
       }
 
-      const { tempToken, total } = apiData.data
+      message.success(apiData.message || '已创建拉取任务')
+      batchPullLoading.value = false
 
-      showBatchPullProgress.value = true
-      batchPullProgress.value = { total, current: 0, status: '准备中...', pulled: 0, failed: 0 }
-
-      batchPullSSE(
-        tempToken,
-        (progress) => {
-          if (progress.type === 'start') {
-            batchPullProgress.value = { ...batchPullProgress.value, status: '开始拉取...', total: progress.total }
-          } else if (progress.type === 'progress') {
-            batchPullProgress.value = {
-              ...batchPullProgress.value,
-              current: progress.current,
-              total: progress.total,
-              repo: progress.repo,
-              status: progress.message,
-            }
-          }
-        },
-        (data) => {
-          batchPullLoading.value = false
-          batchPullProgress.value = {
-            ...batchPullProgress.value,
-            current: batchPullProgress.value.total,
-            completed: true,
-            pulled: data.pulled,
-            failed: data.failed,
-            status: data.message,
-          }
-          refreshRepos()
-        },
-        (data) => {
-          batchPullLoading.value = false
-          batchPullProgress.value = {
-            ...batchPullProgress.value,
-            completed: true,
-            status: data.message || '拉取失败',
-          }
-        }
-      )
+      // 刷新任务列表，启动轮询
+      await tasksStore.fetchTasks({ page_size: 10 })
+      tasksStore.startSSE()
     } else {
       throw new Error(apiData?.message || '操作失败')
     }
@@ -633,12 +583,34 @@ const formatTime = (time) => {
   return date.toLocaleDateString()
 }
 
+// 任务辅助函数
+function taskTypeName(type) {
+  const map = { batch_pull: '一键拉取', batch_clone: '批量克隆', scan: '扫描仓库' }
+  return map[type] || type
+}
+
+function taskStatusName(status) {
+  const map = { pending: '等待中', running: '运行中', completed: '已完成', failed: '失败' }
+  return map[status] || status
+}
+
+// 当前运行中的任务
+const currentRunningTask = computed(() => {
+  return tasksStore.taskList.find(t => t.status === 'running') || null
+})
+
 // 生命周期
 onMounted(async () => {
   await Promise.all([
     loadStatistics(),
-    loadActivities()
+    loadActivities(),
+    tasksStore.fetchTasks({ page_size: 10 })
   ])
+  tasksStore.startSSE()
+})
+
+onUnmounted(() => {
+  tasksStore.stopSSE()
 })
 
 // 监听刷新信号
@@ -648,6 +620,15 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
       loadStatistics(),
       loadActivities()
     ])
+  }
+})
+
+// 任务完成时自动刷新统计
+watch(() => tasksStore.hasRunning, (newVal, oldVal) => {
+  if (oldVal && !newVal) {
+    // 从有 running 变为没有，说明任务完成了
+    loadStatistics()
+    loadActivities()
   }
 })
 </script>
@@ -1070,5 +1051,56 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
   width: 48px;
   height: 48px;
   opacity: 0.5;
+}
+
+/* ============================================
+   RUNNING TASK - 当前运行任务
+   ============================================ */
+
+.running-task-section {
+  background-color: var(--color-bg-card);
+  border: 1px solid #e0e7ff;
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+.running-task-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.running-task-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.running-task-type {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.running-task-progress {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.running-task-counts {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.task-status-badge {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.task-status-badge.status-running {
+  color: #2080f0;
+  background: #e8f4fd;
 }
 </style>
