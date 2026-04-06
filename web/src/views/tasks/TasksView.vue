@@ -79,7 +79,6 @@
               v-if="task.status === 'running'"
               text
               size="tiny"
-              type="warning"
               @click="handlePause(task.id)"
             >
               暂停
@@ -88,7 +87,6 @@
               v-if="task.status === 'paused'"
               text
               size="tiny"
-              type="info"
               @click="handleResume(task.id)"
             >
               继续
@@ -97,7 +95,6 @@
               v-if="task.status === 'running' || task.status === 'paused'"
               text
               size="tiny"
-              type="error"
               @click="handleCancel(task.id)"
             >
               取消
@@ -106,21 +103,11 @@
               v-if="['completed', 'failed', 'cancelled'].includes(task.status)"
               text
               size="tiny"
-              type="info"
               @click="handleRetry(task.id)"
             >
               重跑
             </n-button>
             <n-button
-              v-if="expandedTaskId === task.id"
-              text
-              size="tiny"
-              @click="expandedTaskId = null"
-            >
-              收起
-            </n-button>
-            <n-button
-              v-else
               text
               size="tiny"
               @click="handleExpand(task.id)"
@@ -131,7 +118,6 @@
               v-if="task.status !== 'running' && task.status !== 'paused'"
               text
               size="tiny"
-              type="error"
               @click="handleDelete(task.id)"
             >
               删除
@@ -143,8 +129,7 @@
         <div v-if="task.status === 'running' || task.status === 'paused'" class="task-progress">
           <n-progress
             :percentage="getProgress(task)"
-            :show-indicator="true"
-            status="info"
+            :show-indicator="false"
             :height="6"
             :border-radius="3"
           />
@@ -164,25 +149,6 @@
             <span class="stat-label">失败</span>
             <span class="stat-value">{{ task.fail_count || 0 }}</span>
           </span>
-        </div>
-
-        <!-- 展开的详情 -->
-        <div v-if="expandedTaskId === task.id && taskDetail" class="task-detail">
-          <div v-if="detailLoading" class="detail-loading">加载中...</div>
-          <div v-else-if="taskDetail.items && taskDetail.items.length > 0" class="detail-list">
-            <div
-              v-for="item in taskDetail.items"
-              :key="item.id"
-              class="detail-item"
-            >
-              <span class="detail-name">{{ item.repo_name || item.name || '-' }}</span>
-              <n-tag :type="getStatusTagType(item.status)" size="tiny" round>
-                {{ getStatusLabel(item.status) }}
-              </n-tag>
-              <span v-if="item.message" class="detail-msg">{{ item.message }}</span>
-            </div>
-          </div>
-          <div v-else class="detail-empty">暂无子任务</div>
         </div>
       </div>
 
@@ -211,12 +177,59 @@
       <div class="empty-title">暂无任务</div>
       <div class="empty-desc">后台任务将在这里显示</div>
     </div>
+
+    <!-- 任务详情抽屉 -->
+    <n-drawer v-model:show="drawerVisible" :width="480" placement="right">
+      <n-drawer-content :title="drawerTitle" closable>
+        <div v-if="detailLoading" class="drawer-loading">加载中...</div>
+        <template v-else-if="taskDetail">
+          <!-- 任务概要 -->
+          <div class="drawer-summary">
+            <div class="drawer-summary-row">
+              <span class="drawer-summary-label">类型</span>
+              <span class="drawer-summary-value">{{ getTaskTypeName(taskDetail.type) }}</span>
+            </div>
+            <div class="drawer-summary-row">
+              <span class="drawer-summary-label">状态</span>
+              <n-tag :type="getStatusTagType(taskDetail.status)" size="small" round>
+                {{ getStatusLabel(taskDetail.status) }}
+              </n-tag>
+            </div>
+            <div class="drawer-summary-row">
+              <span class="drawer-summary-label">进度</span>
+              <span class="drawer-summary-value">{{ taskDetail.success_count || 0 }} / {{ taskDetail.total || 0 }}</span>
+            </div>
+            <div class="drawer-summary-row" v-if="taskDetail.created_at">
+              <span class="drawer-summary-label">创建时间</span>
+              <span class="drawer-summary-value">{{ taskDetail.created_at }}</span>
+            </div>
+          </div>
+
+          <!-- 子任务列表 -->
+          <div class="drawer-section-title">子任务列表</div>
+          <div v-if="taskDetail.items && taskDetail.items.length > 0" class="drawer-list">
+            <div
+              v-for="item in taskDetail.items"
+              :key="item.id"
+              class="drawer-item"
+            >
+              <span class="drawer-item-name">{{ item.repo_name || item.name || '-' }}</span>
+              <n-tag :type="getStatusTagType(item.status)" size="tiny" round>
+                {{ getStatusLabel(item.status) }}
+              </n-tag>
+              <span v-if="item.message" class="drawer-item-msg">{{ item.message }}</span>
+            </div>
+          </div>
+          <div v-else class="drawer-empty">暂无子任务</div>
+        </template>
+      </n-drawer-content>
+    </n-drawer>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useMessage, NSelect, NButton, NIcon, NTag, NPagination, NProgress, useDialog } from 'naive-ui'
+import { useMessage, NSelect, NButton, NIcon, NTag, NPagination, NProgress, NDrawer, NDrawerContent, useDialog } from 'naive-ui'
 import { TrashOutline, RefreshOutline } from '@vicons/ionicons5'
 import { getTaskList, getTaskDetail, deleteTask, clearCompletedTasks, pauseTask, resumeTask, cancelTask, retryTask, tasksStreamSSE } from '@/api/repos'
 
@@ -230,7 +243,8 @@ const selectedStatus = ref(null)
 const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
-const expandedTaskId = ref(null)
+const drawerVisible = ref(false)
+const drawerTitle = ref('')
 const taskDetail = ref(null)
 const detailLoading = ref(false)
 
@@ -302,12 +316,10 @@ const handlePageSizeChange = (size) => {
 }
 
 const handleExpand = async (id) => {
-  if (expandedTaskId.value === id) {
-    expandedTaskId.value = null
-    taskDetail.value = null
-    return
-  }
-  expandedTaskId.value = id
+  // 从 tasks 中找到对应任务获取类型名
+  const task = tasks.value.find(t => t.id === id)
+  drawerTitle.value = task ? getTaskTypeName(task.type) + ' #' + id : '任务详情'
+  drawerVisible.value = true
   taskDetail.value = null
   detailLoading.value = true
   try {
@@ -334,8 +346,8 @@ const handleDelete = (id) => {
       try {
         await deleteTask(id)
         message.success('任务已删除')
-        if (expandedTaskId.value === id) {
-          expandedTaskId.value = null
+        if (drawerVisible.value) {
+          drawerVisible.value = false
           taskDetail.value = null
         }
         loadTasks()
@@ -670,42 +682,71 @@ onUnmounted(() => {
 }
 
 /* ============================================
-   TASK DETAIL
+   DRAWER DETAIL
    ============================================ */
 
-.task-detail {
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--color-border-light);
-}
-
-.detail-loading {
+.drawer-loading {
   text-align: center;
   color: var(--color-text-tertiary);
   font-size: var(--text-sm);
-  padding: var(--space-2) 0;
+  padding: var(--space-8) 0;
 }
 
-.detail-list {
+.drawer-summary {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-bg-card);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-4);
 }
 
-.detail-item {
+.drawer-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--text-sm);
+}
+
+.drawer-summary-label {
+  color: var(--color-text-tertiary);
+}
+
+.drawer-summary-value {
+  color: var(--color-text-primary);
+  font-weight: var(--font-semibold);
+}
+
+.drawer-section-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.drawer-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.drawer-item {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   font-size: var(--text-sm);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  transition: background-color 0.15s;
 }
 
-.detail-item:hover {
-  background-color: var(--color-gray-50);
+.drawer-item:hover {
+  background-color: var(--color-bg-hover, var(--color-gray-50));
 }
 
-.detail-name {
+.drawer-item-name {
   flex: 1;
   color: var(--color-text-primary);
   min-width: 0;
@@ -714,20 +755,20 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.detail-msg {
+.drawer-item-msg {
   font-size: var(--text-xs);
   color: var(--color-text-tertiary);
-  max-width: 300px;
+  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.detail-empty {
+.drawer-empty {
   text-align: center;
   color: var(--color-text-tertiary);
   font-size: var(--text-sm);
-  padding: var(--space-2) 0;
+  padding: var(--space-8) 0;
 }
 
 /* ============================================
@@ -844,7 +885,7 @@ onUnmounted(() => {
    ============================================ */
 
 @media (prefers-color-scheme: dark) {
-  :root[data-theme='dark'] .detail-item:hover {
+  :root[data-theme='dark'] .drawer-item:hover {
     background-color: var(--color-gray-800);
   }
 }

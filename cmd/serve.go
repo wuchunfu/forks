@@ -944,7 +944,7 @@ func getRepos(c *gin.Context) {
 
 	// 构建完整 SQL
 	countSQL := "SELECT COUNT(*) FROM repos" + whereSQL
-	querySQL := "SELECT id, author, repo, url, COALESCE(description, ''), COALESCE(stars, 0), COALESCE(forks, 0), COALESCE(topics, ''), COALESCE(license, ''), created_at, COALESCE(updated_at, ''), COALESCE(is_cloned, 0), COALESCE(source, 'github'), COALESCE(valid, 1) FROM repos" + whereSQL + " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+	querySQL := "SELECT id, author, repo, url, COALESCE(description, ''), COALESCE(stars, 0), COALESCE(forks, 0), COALESCE(topics, ''), COALESCE(license, ''), created_at, COALESCE(updated_at, ''), COALESCE(is_cloned, 0), COALESCE(source, 'github'), COALESCE(valid, 1), COALESCE(last_pulled_at, '') FROM repos" + whereSQL + " ORDER BY created_at DESC LIMIT ? OFFSET ?"
 	args = append(args, pageSizeNum, offset)
 
 	log.Printf("🔍 [getRepos] SQL: %s, args: %v", querySQL, args)
@@ -973,7 +973,8 @@ func getRepos(c *gin.Context) {
 		var updatedAt string
 		var isCloned int
 		var valid int
-		err := rows.Scan(&id, &repo.Author, &repo.Repo, &repo.URL, &repo.Description, &repo.Stars, &repo.Fork, &repo.Topics, &repo.License, &createdAt, &updatedAt, &isCloned, &repo.Source, &valid)
+		var lastPulledAt string
+		err := rows.Scan(&id, &repo.Author, &repo.Repo, &repo.URL, &repo.Description, &repo.Stars, &repo.Fork, &repo.Topics, &repo.License, &createdAt, &updatedAt, &isCloned, &repo.Source, &valid, &lastPulledAt)
 		if err != nil {
 			continue
 		}
@@ -991,8 +992,9 @@ func getRepos(c *gin.Context) {
 			"created_at":  createdAt,
 			"updated_at":  updatedAt,
 			"is_cloned":   isCloned,
-			"source":      repo.Source,
-			"valid":       valid,
+			"source":          repo.Source,
+			"valid":           valid,
+			"last_pulled_at":  lastPulledAt,
 		}
 		repos = append(repos, repoData)
 	}
@@ -2401,6 +2403,9 @@ func cloneRepoSSE(c *gin.Context) {
 	repoIdInt, _ := strconv.ParseInt(id, 10, 64)
 	addActivityRecord("success", "克隆成功", fmt.Sprintf("成功克隆仓库 %s", repoFullName), repoIdInt, repoFullName)
 
+	// 更新 last_pulled_at（克隆完成也算一次拉取）
+	common.Db.Exec("UPDATE repos SET last_pulled_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?", id)
+
 	log.Printf("✅ [cloneRepoSSE] 克隆成功, id=%s", id)
 	c.SSEvent("complete", gin.H{"message": "仓库克隆成功!"})
 	c.Writer.Flush()
@@ -2834,6 +2839,9 @@ func pullRepoSSE(c *gin.Context) {
 	}
 	c.Writer.Flush()
 
+	// 更新 last_pulled_at
+	common.Db.Exec("UPDATE repos SET last_pulled_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?", id)
+
 	c.SSEvent("complete", gin.H{"message": "✅ 仓库已同步到远程最新状态!"})
 	c.Writer.Flush()
 }
@@ -3163,8 +3171,11 @@ func restartBatchPullTask(taskID int64) {
 		return
 	}
 
-	// 重置任务状态
-	common.Db.Exec(`UPDATE tasks SET status = 'running', fail_count = 0, updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
+	// 重置任务状态，从 task_items 重新统计计数
+	common.Db.Exec(`UPDATE tasks SET status = 'running',
+		success_count = (SELECT COUNT(*) FROM task_items WHERE task_id = ? AND status = 'success'),
+		fail_count = (SELECT COUNT(*) FROM task_items WHERE task_id = ? AND status = 'failed'),
+		updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID, taskID, taskID)
 
 	cancelChan := make(chan struct{})
 	taskCancelChans.Store("batch_pull", cancelChan)
@@ -3302,8 +3313,12 @@ func retryTask(c *gin.Context) {
 		return
 	}
 
-	// 重置任务状态
-	common.Db.Exec(`UPDATE tasks SET status = 'running', fail_count = 0, updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, id)
+	// 重置任务状态，重新统计成功/失败数
+	taskIDInt, _ := strconv.ParseInt(id, 10, 64)
+	common.Db.Exec(`UPDATE tasks SET status = 'running',
+		success_count = (SELECT COUNT(*) FROM task_items WHERE task_id = ? AND status = 'success'),
+		fail_count = (SELECT COUNT(*) FROM task_items WHERE task_id = ? AND status = 'failed'),
+		updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskIDInt, taskIDInt, taskIDInt)
 
 	// 加载该任务对应的仓库信息
 	rows, err := common.Db.Query(`SELECT ti.repo_id, r.author, r.repo, r.source FROM task_items ti
@@ -3331,7 +3346,6 @@ func retryTask(c *gin.Context) {
 	cancelChan := make(chan struct{})
 	taskCancelChans.Store(taskType, cancelChan)
 
-	taskIDInt, _ := strconv.ParseInt(id, 10, 64)
 	go executeBatchPullTask(taskIDInt, repos, cancelChan)
 
 	c.JSON(200, gin.H{"code": 0, "message": fmt.Sprintf("任务已重新开始，待处理 %d 项", len(repos))})

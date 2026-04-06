@@ -193,6 +193,9 @@
               <span v-else class="repo-status" :class="`status-${repo.is_cloned ? 'cloned' : 'uncloned'}`">
                 {{ repo.is_cloned ? '已克隆' : '未克隆' }}
               </span>
+              <span v-if="repo.last_pulled_at" class="repo-pulled-time" :class="getPullTimeClass(repo.last_pulled_at)">
+                {{ formatPullTime(repo.last_pulled_at) }}
+              </span>
             </div>
           </div>
         </div>
@@ -224,6 +227,9 @@
             <div class="repo-list-meta">
               <span>{{ repo.author }}</span>
               <span v-if="repo.languages">· {{ getFirstLanguage(repo.languages) }}</span>
+              <span v-if="repo.last_pulled_at" class="repo-pulled-time" :class="getPullTimeClass(repo.last_pulled_at)">
+                · {{ formatPullTime(repo.last_pulled_at) }}
+              </span>
             </div>
           </div>
 
@@ -405,6 +411,36 @@ const getFirstLanguage = (languages) => {
   } catch {
     return '未知'
   }
+}
+
+const formatPullTime = (timeStr) => {
+  if (!timeStr) return ''
+  const date = new Date(timeStr.replace(/-/g, '/'))
+  if (isNaN(date.getTime())) return ''
+  const now = new Date()
+  const diffMs = now - date
+  const minutes = Math.floor(diffMs / 60000)
+  const hours = Math.floor(diffMs / 3600000)
+  const days = Math.floor(diffMs / 86400000)
+
+  if (minutes < 30) return '半小时内'
+  if (hours < 1) return '1小时内'
+  if (hours < 24) return `${hours}小时前`
+  if (days === 1) return '1天前'
+  if (days < 30) return `${days}天前`
+  if (days < 365) return `${Math.floor(days / 30)}个月前`
+  return `${Math.floor(days / 365)}年前`
+}
+
+const getPullTimeClass = (timeStr) => {
+  if (!timeStr) return ''
+  const date = new Date(timeStr.replace(/-/g, '/'))
+  if (isNaN(date.getTime())) return ''
+  const days = Math.floor((Date.now() - date.getTime()) / 86400000)
+  if (days <= 1) return 'pull-fresh'
+  if (days <= 3) return 'pull-recent'
+  if (days <= 7) return 'pull-normal'
+  return 'pull-stale'
 }
 
 const getRepoActions = (repo) => {
@@ -1162,6 +1198,23 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
 .status-invalid {
   background-color: rgba(220, 38, 38, 0.1);
   color: var(--color-red-600);
+}
+
+.repo-pulled-time {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+
+.repo-pulled-time.pull-fresh {
+  color: var(--color-green-600);
+}
+
+.repo-pulled-time.pull-recent {
+  color: var(--color-text-secondary);
+}
+
+.repo-pulled-time.pull-stale {
+  color: var(--color-orange-500, #f97316);
 }
 
 /* ============================================
