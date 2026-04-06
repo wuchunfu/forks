@@ -154,9 +154,13 @@
       <!-- 网格视图 -->
       <div v-if="viewMode === 'grid'" class="repos-grid">
         <div
-          v-for="repo in paginatedRepos"
+          v-for="(repo, idx) in paginatedRepos"
           :key="repo.id"
           class="repo-card"
+          :class="{
+            'card-uncloned': repo.valid !== 0 && !repo.is_cloned,
+            'card-invalid': repo.valid === 0,
+          }"
           @click="handleRepoClick(repo)"
           @contextmenu.prevent="(e) => handleContextMenu(e, repo)"
         >
@@ -166,45 +170,44 @@
             <span class="overlay-progress">{{ pullingProgress }}</span>
           </div>
 
-          <!-- 平台角标 -->
+          <!-- 平台角标 - 右上角 -->
           <span
             class="card-badge"
             :class="`badge-${repo.source || 'github'}`"
           >{{ repo.source === 'gitee' ? 'Gitee' : 'GitHub' }}</span>
 
-          <!-- 仓库图标 -->
-          <div class="repo-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-            </svg>
-          </div>
-
           <!-- 仓库信息 -->
           <div class="repo-info">
-            <div class="repo-name">{{ repo.repo }}</div>
+            <div class="repo-name">
+              {{ repo.repo }}
+            </div>
             <div class="repo-author">{{ repo.author }}</div>
             <div class="repo-meta">
               <span v-if="repo.languages" class="repo-language">
                 {{ getFirstLanguage(repo.languages) }}
               </span>
-              <span v-if="repo.valid === 0" class="repo-status status-invalid">
-                已失效
-              </span>
-              <span v-else class="repo-status" :class="`status-${repo.is_cloned ? 'cloned' : 'uncloned'}`">
-                {{ repo.is_cloned ? '已克隆' : '未克隆' }}
-              </span>
-              <span v-if="repo.last_pulled_at" class="repo-pulled-time" :class="getPullTimeClass(repo.last_pulled_at)">
-                {{ formatPullTime(repo.last_pulled_at) }}
-              </span>
             </div>
           </div>
+
+          <!-- 更新时间 - 右下角绝对定位 -->
+          <span
+            v-if="repo.last_pulled_at"
+            class="repo-card-time"
+            :class="getPullTimeClass(repo.last_pulled_at)"
+          >
+            <svg class="time-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            {{ formatPullTime(repo.last_pulled_at) }}
+          </span>
         </div>
       </div>
 
       <!-- 列表视图 -->
       <div v-else class="repos-list">
         <div
-          v-for="repo in paginatedRepos"
+          v-for="(repo, idx) in paginatedRepos"
           :key="repo.id"
           class="repo-list-item"
           @click="handleRepoClick(repo)"
@@ -1093,6 +1096,7 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
   display: flex;
   gap: var(--space-3);
   padding: var(--space-4);
+  padding-bottom: 28px;
   background-color: var(--color-bg-card);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);
@@ -1106,21 +1110,25 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
   transform: translateY(-2px);
 }
 
-.repo-icon {
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--color-primary-50);
-  color: var(--color-primary);
-  border-radius: var(--radius-md);
+/* 未克隆 - 虚线边框 + 淡色 */
+.card-uncloned {
+  border-style: dashed;
+  border-color: var(--color-border);
+  opacity: 0.75;
 }
 
-.repo-icon svg {
-  width: 20px;
-  height: 20px;
+.card-uncloned:hover {
+  opacity: 1;
+  border-color: var(--color-primary);
+}
+
+/* 已失效 - 红色边框 */
+.card-invalid {
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
+.card-invalid:hover {
+  border-color: var(--color-red-500, #ef4444);
 }
 
 .repo-info {
@@ -1214,6 +1222,50 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
 }
 
 .repo-pulled-time.pull-stale {
+  color: var(--color-orange-500, #f97316);
+}
+
+/* 网格卡片右下角更新时间 */
+.repo-card-time {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-gray-50);
+  color: var(--color-text-tertiary);
+  line-height: 1.5;
+  white-space: nowrap;
+  transition: opacity 0.2s;
+}
+
+.repo-card-time .time-icon {
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+}
+
+.repo-card-time.pull-fresh {
+  background-color: var(--color-green-50);
+  color: var(--color-green-600);
+}
+
+.repo-card-time.pull-recent {
+  background-color: var(--color-gray-50);
+  color: var(--color-text-secondary);
+}
+
+.repo-card-time.pull-normal {
+  background-color: var(--color-amber-50, #fffbeb);
+  color: var(--color-amber-600, #d97706);
+}
+
+.repo-card-time.pull-stale {
+  background-color: rgba(249, 115, 22, 0.08);
   color: var(--color-orange-500, #f97316);
 }
 

@@ -3182,25 +3182,17 @@ func restartBatchPullTask(taskID int64) {
 	go executeBatchPullTask(taskID, repos, cancelChan)
 }
 
-// resumeRunningTasks 服务启动时恢复未完成的任务
+// resumeRunningTasks 服务启动时将未完成任务标记为暂停，由用户手动恢复
 func resumeRunningTasks() {
-	rows, err := common.Db.Query(`SELECT id FROM tasks WHERE type = 'batch_pull' AND status IN ('running', 'paused')`)
-	if err != nil {
-		return
-	}
-	var taskIDs []int64
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err == nil {
-			taskIDs = append(taskIDs, id)
+	// 将所有 running 的任务改为 paused（运行中的 item 回退为 pending）
+	result, err := common.Db.Exec(`UPDATE tasks SET status = 'paused', updated_at = strftime('%Y-%m-%d %H:%M:%S','now','localtime') WHERE status = 'running'`)
+	if err == nil {
+		if n, _ := result.RowsAffected(); n > 0 {
+			log.Printf("⏸️ [启动恢复] 已将 %d 个运行中任务标记为暂停", n)
 		}
 	}
-	rows.Close()
-
-	for _, id := range taskIDs {
-		log.Printf("🔄 [启动恢复] 恢复任务 #%d", id)
-		restartBatchPullTask(id)
-	}
+	// running 的 task_items 也回退为 pending
+	common.Db.Exec(`UPDATE task_items SET status = 'pending', message = '' WHERE status = 'running'`)
 }
 
 // pauseTask 暂停运行中的任务
