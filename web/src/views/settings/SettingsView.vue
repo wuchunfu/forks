@@ -6,30 +6,10 @@
       <p class="page-description">配置系统参数和偏好设置</p>
     </div>
 
-    <div class="settings-layout">
-      <!-- 左侧导航 -->
-      <div class="settings-nav">
-        <div class="nav-section">
-          <div class="nav-section-title">设置</div>
-          <nav class="nav-list">
-            <button
-              v-for="item in navItems"
-              :key="item.key"
-              class="nav-item"
-              :class="{ active: activeTab === item.key }"
-              @click="activeTab = item.key"
-            >
-              <component :is="item.icon" class="nav-icon" />
-              <span class="nav-label">{{ item.label }}</span>
-            </button>
-          </nav>
-        </div>
-      </div>
-
-      <!-- 右侧内容区 -->
-      <div class="settings-content">
-        <!-- 代理设置 -->
-        <div v-if="activeTab === 'proxy'" class="settings-panel">
+    <n-tabs v-model:value="activeTab" type="line" placement="left" animated tab-style="min-width: 160px" class="settings-tabs">
+      <!-- 代理设置 -->
+      <n-tab-pane name="proxy" tab="代理">
+        <div class="settings-panel">
           <div class="panel-header">
             <h2 class="panel-title">代理设置</h2>
             <p class="panel-desc">配置 Git 操作的代理服务器</p>
@@ -122,17 +102,29 @@
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- 平台代理 -->
-        <div v-else-if="activeTab === 'platform-proxy'" class="settings-panel">
+          <!-- 底部操作按钮 -->
+          <div class="settings-footer">
+            <div class="footer-info">
+              <span class="info-text">设置自动保存到本地配置文件</span>
+            </div>
+            <div class="footer-actions">
+              <button class="btn btn-secondary" @click="resetSettings">重置默认</button>
+              <button class="btn btn-primary" @click="saveSettings">保存设置</button>
+            </div>
+          </div>
+        </div>
+      </n-tab-pane>
+
+      <!-- 平台代理 -->
+      <n-tab-pane name="platform-proxy" tab="平台代理">
+        <div class="settings-panel">
           <div class="panel-header">
             <h2 class="panel-title">平台代理</h2>
             <p class="panel-desc">单独控制每个平台是否走代理，未设置时跟随全局开关</p>
           </div>
 
           <div class="settings-form">
-            <!-- 全局代理状态提示 -->
             <div class="proxy-status-hint" :class="{ disabled: !settings.enabled }">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="status-icon">
                 <circle cx="12" cy="12" r="10"/>
@@ -142,13 +134,8 @@
               <span>全局代理：{{ settings.enabled ? '已启用' : '未启用' }}</span>
             </div>
 
-            <!-- 平台列表 -->
             <div class="platform-list">
-              <div
-                v-for="p in platformList"
-                :key="p.key"
-                class="platform-item"
-              >
+              <div v-for="p in platformList" :key="p.key" class="platform-item">
                 <div class="platform-info">
                   <span class="platform-name">{{ p.label }}</span>
                   <span class="platform-desc">{{ p.desc }}</span>
@@ -165,26 +152,33 @@
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- 令牌管理 -->
-        <div v-else-if="activeTab === 'token'" class="settings-panel">
+          <div class="settings-footer">
+            <div class="footer-info">
+              <span class="info-text">设置自动保存到本地配置文件</span>
+            </div>
+            <div class="footer-actions">
+              <button class="btn btn-secondary" @click="resetSettings">重置默认</button>
+              <button class="btn btn-primary" @click="saveSettings">保存设置</button>
+            </div>
+          </div>
+        </div>
+      </n-tab-pane>
+
+      <!-- 令牌管理 -->
+      <n-tab-pane name="token" tab="令牌管理">
+        <div class="settings-panel">
           <div class="panel-header">
             <h2 class="panel-title">令牌管理</h2>
             <p class="panel-desc">管理 API 访问令牌，修改后当前会话自动更新</p>
           </div>
 
           <div class="settings-form">
-            <!-- 当前 Token -->
             <div class="form-group">
               <label class="form-label">当前令牌</label>
               <div class="token-display">
                 <code class="token-value">{{ currentToken || '加载中...' }}</code>
-                <button
-                  class="btn-icon"
-                  title="复制令牌"
-                  @click="copyToken"
-                >
+                <button class="btn-icon" title="复制令牌" @click="copyToken">
                   <svg v-if="!copied" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <rect x="9" y="9" width="13" height="13" rx="2"/>
                     <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
@@ -197,7 +191,6 @@
               <span class="form-hint">服务启动后首次生成时可复制完整令牌，脱敏后仅页面内可见</span>
             </div>
 
-            <!-- 生成方式 -->
             <div class="form-group">
               <label class="form-label">生成方式</label>
               <div class="radio-group">
@@ -212,20 +205,14 @@
               </div>
             </div>
 
-            <!-- 自动生成 -->
             <div v-if="tokenMode === 'auto'" class="form-group">
               <div class="token-actions">
-                <button
-                  class="btn btn-secondary"
-                  :disabled="tokenLoading"
-                  @click="regenerateToken"
-                >
+                <button class="btn btn-secondary" :disabled="tokenLoading" @click="regenerateToken">
                   {{ tokenLoading ? '处理中...' : '重新生成' }}
                 </button>
               </div>
             </div>
 
-            <!-- 自定义输入 -->
             <div v-else class="form-group">
               <div class="token-custom">
                 <input
@@ -246,10 +233,22 @@
               <span class="form-hint">修改后当前浏览器会话自动更新，其他浏览器需重新登录</span>
             </div>
           </div>
-        </div>
 
-        <!-- 关于 -->
-        <div v-else-if="activeTab === 'about'" class="settings-panel">
+          <div class="settings-footer">
+            <div class="footer-info">
+              <span class="info-text">设置自动保存到本地配置文件</span>
+            </div>
+            <div class="footer-actions">
+              <button class="btn btn-secondary" @click="resetSettings">重置默认</button>
+              <button class="btn btn-primary" @click="saveSettings">保存设置</button>
+            </div>
+          </div>
+        </div>
+      </n-tab-pane>
+
+      <!-- 关于 -->
+      <n-tab-pane name="about" tab="关于">
+        <div class="settings-panel">
           <div class="panel-header">
             <h2 class="panel-title">关于</h2>
             <p class="panel-desc">Forks — Git 仓库管理工具</p>
@@ -282,38 +281,8 @@
             </div>
           </div>
         </div>
-
-        <!-- 其他设置占位 -->
-        <div v-else class="settings-panel">
-          <div class="panel-header">
-            <h2 class="panel-title">{{ getCurrentNavLabel }}</h2>
-            <p class="panel-desc">此功能开发中...</p>
-          </div>
-          <div class="empty-state">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M12 8v4l3 3"/>
-            </svg>
-            <p>该设置项正在开发中，敬请期待</p>
-          </div>
-        </div>
-
-        <!-- 底部操作按钮 -->
-        <div v-if="activeTab !== 'about'" class="settings-footer">
-          <div class="footer-info">
-            <span class="info-text">设置自动保存到本地配置文件</span>
-          </div>
-          <div class="footer-actions">
-            <button class="btn btn-secondary" @click="resetSettings">
-              重置默认
-            </button>
-            <button class="btn btn-primary" @click="saveSettings">
-              保存设置
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      </n-tab-pane>
+    </n-tabs>
   </div>
 </template>
 
@@ -328,16 +297,14 @@
  * - 平台代理独立开关
  * - 保存和重置按钮
  */
-import { ref, reactive, computed, onMounted } from 'vue'
-import { useMessage } from 'naive-ui'
+import { ref, reactive, onMounted } from 'vue'
+import { useMessage, NTabs, NTabPane } from 'naive-ui'
 import {
   GitNetworkOutline,
   FlashOutline,
   GlobeOutline,
   RocketOutline,
-  GitMergeOutline,
-  KeyOutline,
-  InformationCircleOutline
+  GitMergeOutline
 } from '@vicons/ionicons5'
 import { getProxyConfig, updateProxyConfig, getTokenInfo, updateToken, getVersion } from '@/api/repos'
 import { copyToClipboard } from '@/utils/clipboard'
@@ -346,36 +313,6 @@ const message = useMessage()
 
 // 当前激活的 tab
 const activeTab = ref('proxy')
-
-// 导航项
-const navItems = [
-  {
-    key: 'proxy',
-    label: '代理',
-    icon: GitNetworkOutline
-  },
-  {
-    key: 'platform-proxy',
-    label: '平台代理',
-    icon: GitMergeOutline
-  },
-  {
-    key: 'token',
-    label: '令牌管理',
-    icon: KeyOutline
-  },
-  {
-    key: 'about',
-    label: '关于',
-    icon: InformationCircleOutline
-  }
-]
-
-// 当前导航标签
-const getCurrentNavLabel = computed(() => {
-  const item = navItems.find(i => i.key === activeTab.value)
-  return item?.label || '设置'
-})
 
 // 代理预设
 const proxyPresets = [
@@ -621,6 +558,7 @@ onMounted(() => {
   flex-direction: column;
   gap: var(--space-6);
   animation: fadeIn 0.3s ease-out;
+  height: calc(100vh - var(--navbar-height) - var(--space-6) * 2);
 }
 
 @keyframes fadeIn {
@@ -652,113 +590,8 @@ onMounted(() => {
 }
 
 /* ============================================
-   SETTINGS LAYOUT
+   SETTINGS PANEL
    ============================================ */
-
-.settings-layout {
-  display: grid;
-  grid-template-columns: 200px 1fr;
-  gap: var(--space-6);
-  align-items: start;
-}
-
-@media (max-width: 768px) {
-  .settings-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .settings-nav {
-    position: static;
-    width: 100%;
-  }
-
-  .nav-list {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-}
-
-/* ============================================
-   SETTINGS NAV
-   ============================================ */
-
-.settings-nav {
-  position: sticky;
-  top: calc(var(--navbar-height) + var(--space-6));
-  background-color: var(--color-bg-card);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
-  align-self: start;
-}
-
-.nav-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.nav-section-title {
-  font-size: var(--text-xs);
-  font-weight: var(--font-semibold);
-  color: var(--color-text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 0 var(--space-2);
-}
-
-.nav-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2_5) var(--space-3);
-  border-radius: var(--radius-md);
-  border: none;
-  background: none;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-align: left;
-  width: 100%;
-}
-
-.nav-item:hover {
-  background-color: var(--color-gray-100);
-  color: var(--color-text-primary);
-}
-
-.nav-item.active {
-  background-color: var(--color-primary-50);
-  color: var(--color-primary);
-  font-weight: var(--font-semibold);
-}
-
-.nav-icon {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-}
-
-.nav-label {
-  font-size: var(--text-sm);
-}
-
-/* ============================================
-   SETTINGS CONTENT
-   ============================================ */
-
-.settings-content {
-  background-color: var(--color-bg-card);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-lg);
-  min-height: 400px;
-}
 
 .settings-panel {
   padding: var(--space-6);
@@ -1276,5 +1109,30 @@ onMounted(() => {
   color: var(--color-text-secondary);
   line-height: 1.7;
   margin: 0;
+}
+
+/* ============================================
+   TABS - 左侧 tab 导航列撑满高度
+   ============================================ */
+
+.settings-tabs {
+  flex: 1;
+  min-height: 0;
+}
+
+.settings-tabs :deep(.n-tabs-nav) {
+  height: 100%;
+}
+
+.settings-tabs :deep(.n-tabs-nav-scroll-wrapper) {
+  height: 100%;
+}
+
+.settings-tabs :deep(.n-tabs-tab-wrapper) {
+  height: 100%;
+}
+
+.settings-tabs :deep(.n-tabs-tabs-wrapper) {
+  height: 100%;
 }
 </style>

@@ -50,7 +50,7 @@
     ></div>
 
     <!-- 悬浮添加按钮 -->
-    <FloatingAddButton @click="showAddRepoModal = true" />
+    <FloatingAddButton v-if="showFloatingButton" @click="showAddRepoModal = true" />
 
     <!-- 添加仓库弹窗 -->
     <AddRepoModal
@@ -76,6 +76,7 @@
  * - 悬浮添加按钮
  */
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useReposStore } from '@/stores/repos'
 import AppSidebar from './AppSidebar.vue'
@@ -85,6 +86,12 @@ import AddRepoModal from '@/components/AddRepoModal.vue'
 
 const message = useMessage()
 const reposStore = useReposStore()
+const route = useRoute()
+
+// 设置页、任务页等不显示悬浮按钮
+const showFloatingButton = computed(() => {
+  return route.path !== '/settings'
+})
 
 // 侧边栏状态
 const sidebarCollapsed = ref(false) // 桌面端折叠状态
