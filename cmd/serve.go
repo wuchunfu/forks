@@ -226,6 +226,10 @@ func sseAuthMiddleware() gin.HandlerFunc {
 				// 批量拉取任务
 				keyID = "batch_pull"
 				log.Printf("🔑 [SSE认证] 批量拉取任务, keyID=%s", keyID)
+			} else if strings.Contains(path, "batch-update-info-status") {
+				// 批量更新信息任务
+				keyID = "batch_update_info"
+				log.Printf("🔑 [SSE认证] 批量更新信息任务, keyID=%s", keyID)
 			} else {
 				// 其他操作使用路径参数id
 				if strings.Contains(path, "clone-status") {
@@ -244,7 +248,7 @@ func sseAuthMiddleware() gin.HandlerFunc {
 
 			if exists && queryToken == expectedToken {
 				// 对于扫描任务和批量克隆，不删除token（支持重连）
-				if !strings.Contains(path, "scan-status") && !strings.Contains(path, "batch-clone-status") && !strings.Contains(path, "batch-pull-status") {
+				if !strings.Contains(path, "scan-status") && !strings.Contains(path, "batch-clone-status") && !strings.Contains(path, "batch-pull-status") && !strings.Contains(path, "batch-update-info-status") {
 					tempTokenMutex.Lock()
 					delete(tempTokenStore, keyID)
 					tempTokenMutex.Unlock()
@@ -386,6 +390,7 @@ func setupRoutes(r *gin.Engine) {
 		api.POST("/repos/:id/clone", cloneRepo)
 		api.POST("/repos/:id/pull", pullRepo)
 		api.POST("/repos/batch-pull", batchPullRepos)
+		api.POST("/repos/batch-update-info", batchUpdateInfoRepos)
 		api.GET("/repos/:id/status", getRepoStatus)
 		api.GET("/repos/:id/diff", getRepoDiff)
 		api.GET("/repos/:id/commits", getRepoCommits)
@@ -422,6 +427,7 @@ func setupRoutes(r *gin.Engine) {
 		sseApi.GET("/repos/:id/clone-status", cloneRepoSSE)
 		sseApi.GET("/repos/:id/pull-status", pullRepoSSE)
 		sseApi.GET("/repos/batch-pull-status", batchPullSSE)
+		sseApi.GET("/repos/batch-update-info-status", batchUpdateInfoSSE)
 		sseApi.GET("/repos/scan-status", scanReposSSE)
 		sseApi.GET("/repos/batch-clone-status", batchCloneSSE)
 		sseApi.GET("/tasks-stream", tasksStreamSSE)

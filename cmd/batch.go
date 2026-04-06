@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"forks.com/m/common"
+	"forks.com/m/models"
 	"forks.com/m/utils"
 )
 
@@ -622,6 +623,337 @@ func executeBatchPullTask(taskID int64, repos []RepoInfo, cancelChan chan struct
 }
 
 func restartBatchPullTask(taskID int64) {
+	restartTask(taskID, "batch_pull", executeBatchPullTask)
+}
+
+// ============================================
+//   BATCH UPDATE INFO - 批量更新仓库信息
+//   ============================================
+
+func batchUpdateInfoRepos(c *gin.Context) {
+	log.Printf("🔄 [batchUpdateInfoRepos] 开始批量更新信息")
+
+	// 检查是否已有运行中或暂停的同类型任务
+	var existCount int
+	common.Db.QueryRow("SELECT COUNT(*) FROM tasks WHERE type = 'batch_update_info' AND status IN ('running', 'paused')").Scan(&existCount)
+	if existCount > 0 {
+		c.JSON(409, gin.H{"code": 409, "message": "已有正在进行的批量更新信息任务"})
+		return
+	}
+
+	// 查询所有有效仓库（valid = 1 或 IS NULL，排除已标记失效的）
+	rows, err := common.Db.Query("SELECT id, author, repo, url, source FROM repos WHERE COALESCE(valid, 1) = 1 ORDER BY id")
+	if err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": "查询数据库失败"})
+		return
+	}
+	defer rows.Close()
+
+	var repos []RepoInfo
+	for rows.Next() {
+		var r RepoInfo
+		var url string
+		if err := rows.Scan(&r.ID, &r.Author, &r.Repo, &url, &r.Source); err == nil {
+			repos = append(repos, r)
+		}
+	}
+
+	if len(repos) == 0 {
+		c.JSON(200, gin.H{"code": 0, "message": "没有需要更新的仓库", "data": gin.H{"total": 0}})
+		return
+	}
+
+	// 创建 task 记录
+	result, err := common.Db.Exec(`
+		INSERT INTO tasks (type, status, total, success_count, fail_count, created_at)
+		VALUES ('batch_update_info', 'running', ?, 0, 0, strftime('%Y-%m-%d %H:%M:%S', 'now','localtime'))`, len(repos))
+	if err != nil {
+		c.JSON(500, gin.H{"code": 500, "message": "创建任务失败"})
+		return
+	}
+	taskID, _ := result.LastInsertId()
+
+	// 为每个仓库创建 task_item
+	for _, r := range repos {
+		repoName := fmt.Sprintf("%s/%s", r.Author, r.Repo)
+		common.Db.Exec(`INSERT INTO task_items (task_id, repo_id, repo_name, status, created_at)
+			VALUES (?, ?, ?, 'pending', strftime('%Y-%m-%d %H:%M:%S', 'now','localtime'))`, taskID, r.ID, repoName)
+	}
+
+	// 生成临时 token
+	tempToken := generateToken()
+	tempTokenMutex.Lock()
+	tempTokenStore["batch_update_info"] = tempToken
+	tempTokenMutex.Unlock()
+
+	// 启动 goroutine 执行实际更新
+	cancelChan := make(chan struct{})
+	taskCancelChans.Store("batch_update_info", cancelChan)
+	go executeBatchUpdateInfoTask(taskID, repos, cancelChan)
+
+	c.JSON(200, gin.H{
+		"code":    0,
+		"message": fmt.Sprintf("开始批量更新 %d 个仓库信息", len(repos)),
+		"data": gin.H{
+			"task_id":   taskID,
+			"tempToken": tempToken,
+			"total":     len(repos),
+		},
+	})
+}
+
+func batchUpdateInfoSSE(c *gin.Context) {
+	log.Printf("🔄 [batchUpdateInfoSSE] 客户端连接")
+
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("Access-Control-Allow-Origin", "*")
+
+	// 查找正在运行或暂停的 batch_update_info 任务
+	var taskID int64
+	err := common.Db.QueryRow("SELECT id FROM tasks WHERE type = 'batch_update_info' AND status IN ('running', 'paused') ORDER BY id DESC LIMIT 1").Scan(&taskID)
+	if err != nil {
+		c.SSEvent("error", gin.H{"message": "没有正在进行的更新信息任务"})
+		c.Writer.Flush()
+		return
+	}
+
+	c.SSEvent("start", gin.H{"task_id": taskID, "message": "连接成功"})
+	c.Writer.Flush()
+
+	// 轮询 DB 读取进度
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	lastProcessed := 0
+
+	for range ticker.C {
+		// 检查客户端是否断开
+		select {
+		case <-c.Request.Context().Done():
+			return
+		default:
+		}
+
+		// 查询任务状态
+		var status string
+		var total, successCount, failCount int
+		err := common.Db.QueryRow(`SELECT status, total, success_count, fail_count FROM tasks WHERE id = ?`, taskID).Scan(&status, &total, &successCount, &failCount)
+		if err != nil {
+			continue
+		}
+
+		// 查询新处理的 task_items
+		rows, err := common.Db.Query(`SELECT id, repo_name, status, message FROM task_items WHERE task_id = ? AND id > ? ORDER BY id`, taskID, lastProcessed)
+		if err != nil {
+			continue
+		}
+
+		for rows.Next() {
+			var itemID int
+			var repoName, itemStatus string
+			var message sql.NullString
+			if err := rows.Scan(&itemID, &repoName, &itemStatus, &message); err == nil {
+				msg := ""
+				if message.Valid {
+					msg = message.String
+				}
+				c.SSEvent("progress", gin.H{
+					"task_id":  taskID,
+					"repo":     repoName,
+					"status":   itemStatus,
+					"message":  msg,
+					"current":  successCount + failCount,
+					"total":    total,
+				})
+				c.Writer.Flush()
+				if itemID > lastProcessed {
+					lastProcessed = itemID
+				}
+			}
+		}
+		rows.Close()
+
+		// 推送整体进度
+		c.SSEvent("summary", gin.H{
+			"task_id":       taskID,
+			"total":         total,
+			"success_count": successCount,
+			"fail_count":    failCount,
+			"status":        status,
+		})
+		c.Writer.Flush()
+
+		// 任务完成
+		if status == "completed" || status == "failed" || status == "cancelled" {
+			c.SSEvent("complete", gin.H{
+				"task_id":       taskID,
+				"total":         total,
+				"success_count": successCount,
+				"fail_count":    failCount,
+				"message":       fmt.Sprintf("批量更新信息完成! 成功: %d, 失败: %d, 总计: %d", successCount, failCount, total),
+			})
+			c.Writer.Flush()
+			return
+		}
+	}
+}
+
+// executeBatchUpdateInfoTask 执行批量更新信息任务的核心逻辑
+func executeBatchUpdateInfoTask(taskID int64, repos []RepoInfo, cancelChan chan struct{}) {
+	defer taskCancelChans.Delete("batch_update_info")
+
+	for i, r := range repos {
+		repoName := fmt.Sprintf("%s/%s", r.Author, r.Repo)
+
+		// 检查任务是否被取消
+		select {
+		case <-cancelChan:
+			common.Db.Exec(`UPDATE task_items SET status = 'cancelled', message = '任务已取消' WHERE task_id = ? AND status IN ('pending', 'running')`, taskID)
+			common.Db.Exec(`UPDATE tasks SET status = 'cancelled', updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
+			return
+		default:
+		}
+
+		// 从 DB 检查状态（处理暂停）
+		var currentStatus string
+		common.Db.QueryRow("SELECT status FROM tasks WHERE id = ?", taskID).Scan(&currentStatus)
+		if currentStatus == "paused" {
+			for {
+				time.Sleep(2 * time.Second)
+				select {
+				case <-cancelChan:
+					common.Db.Exec(`UPDATE task_items SET status = 'cancelled', message = '任务已取消' WHERE task_id = ? AND status IN ('pending', 'running')`, taskID)
+					common.Db.Exec(`UPDATE tasks SET status = 'cancelled', updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
+					return
+				default:
+				}
+				common.Db.QueryRow("SELECT status FROM tasks WHERE id = ?", taskID).Scan(&currentStatus)
+				if currentStatus == "running" {
+					break
+				}
+				if currentStatus == "cancelled" {
+					common.Db.Exec(`UPDATE task_items SET status = 'cancelled', message = '任务已取消' WHERE task_id = ? AND status IN ('pending', 'running')`, taskID)
+					return
+				}
+			}
+		}
+		if currentStatus == "cancelled" {
+			return
+		}
+
+		// 检查该 item 是否已完成（retry 场景跳过已成功的）
+		var itemStatus string
+		common.Db.QueryRow("SELECT status FROM task_items WHERE task_id = ? AND repo_name = ?", taskID, repoName).Scan(&itemStatus)
+		if itemStatus == "success" {
+			continue
+		}
+
+		// 更新 task_item 为 running
+		common.Db.Exec(`UPDATE task_items SET status = 'running', message = ? WHERE task_id = ? AND repo_name = ?`,
+			fmt.Sprintf("正在更新 %s 信息...", repoName), taskID, repoName)
+
+		// 获取仓库 URL
+		var repoURL string
+		if err := common.Db.QueryRow("SELECT url FROM repos WHERE id = ?", r.ID).Scan(&repoURL); err != nil {
+			errMsg := "查询仓库 URL 失败"
+			common.Db.Exec(`UPDATE task_items SET status = 'failed', message = ? WHERE task_id = ? AND repo_name = ?`,
+				errMsg, taskID, repoName)
+			common.Db.Exec(`UPDATE tasks SET fail_count = fail_count + 1, updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
+			continue
+		}
+
+		// 根据平台获取仓库信息
+		platform, err := utils.GetPlatform(repoURL)
+		if err != nil {
+			common.Db.Exec(`UPDATE task_items SET status = 'failed', message = ? WHERE task_id = ? AND repo_name = ?`,
+				"不支持的平台类型", taskID, repoName)
+			common.Db.Exec(`UPDATE tasks SET fail_count = fail_count + 1, updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
+			continue
+		}
+
+		// 获取最新仓库信息
+		var updatedRepo *models.GitRepoInfo
+		valid := 1
+		fetchFailed := false
+		if giteePlatform, ok := platform.(*utils.Gitee); ok {
+			updatedRepo, err = giteePlatform.FetchRepoInfo(r.Author, r.Repo)
+			if err != nil {
+				log.Printf("❌ [批量更新] Gitee %s 失败: %v", repoName, err)
+				valid = 0
+				fetchFailed = true
+			}
+		} else {
+			doc, docErr := platform.FetchDocs(repoURL)
+			if docErr != nil {
+				log.Printf("❌ [批量更新] %s 抓取页面失败: %v", repoName, docErr)
+				valid = 0
+				fetchFailed = true
+			} else {
+				updatedRepo = platform.ParseDoc(doc)
+			}
+		}
+
+		if fetchFailed {
+			common.Db.Exec("UPDATE repos SET valid = 0, updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?", r.ID)
+			common.Db.Exec(`UPDATE task_items SET status = 'failed', message = ? WHERE task_id = ? AND repo_name = ?`,
+				"远端仓库不可访问，已标记为失效", taskID, repoName)
+			common.Db.Exec(`UPDATE tasks SET fail_count = fail_count + 1, updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
+		} else {
+			// 更新数据库
+			_, dbErr := common.Db.Exec(`UPDATE repos SET
+				description = ?,
+				stars = ?,
+				forks = ?,
+				topics = ?,
+				license = ?,
+				languages = ?,
+				valid = ?,
+				updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime')
+				WHERE id = ?`,
+				updatedRepo.Description,
+				updatedRepo.Stars,
+				updatedRepo.Fork,
+				updatedRepo.Topics,
+				updatedRepo.License,
+				updatedRepo.Languages,
+				valid,
+				r.ID)
+
+			if dbErr != nil {
+				common.Db.Exec(`UPDATE task_items SET status = 'failed', message = ? WHERE task_id = ? AND repo_name = ?`,
+					"更新数据库失败", taskID, repoName)
+				common.Db.Exec(`UPDATE tasks SET fail_count = fail_count + 1, updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
+			} else {
+				log.Printf("✅ [批量更新] %s 完成: stars=%d, forks=%d", repoName, updatedRepo.Stars, updatedRepo.Fork)
+				common.Db.Exec(`UPDATE task_items SET status = 'success', message = ? WHERE task_id = ? AND repo_name = ?`,
+					fmt.Sprintf("更新完成 (stars=%d, forks=%d)", updatedRepo.Stars, updatedRepo.Fork), taskID, repoName)
+				common.Db.Exec(`UPDATE tasks SET success_count = success_count + 1, updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
+			}
+		}
+
+		// 每个仓库之间间隔 2 秒，避免触发平台限流
+		if i < len(repos)-1 {
+			time.Sleep(2 * time.Second)
+		}
+	}
+
+	// 任务完成
+	common.Db.Exec(`UPDATE tasks SET status = 'completed', updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
+
+	// 记录活动
+	var successCount, failCount int
+	common.Db.QueryRow("SELECT success_count, fail_count FROM tasks WHERE id = ?", taskID).Scan(&successCount, &failCount)
+	addActivityRecord("success", "批量更新信息完成", fmt.Sprintf("成功 %d 个, 失败 %d 个", successCount, failCount), 0, "")
+}
+
+func restartBatchUpdateInfoTask(taskID int64) {
+	restartTask(taskID, "batch_update_info", executeBatchUpdateInfoTask)
+}
+
+// restartTask 通用任务重启逻辑
+func restartTask(taskID int64, taskType string, executeFn func(int64, []RepoInfo, chan struct{})) {
 	// 将 running 的 task_items 回退为 pending（上次中断的）
 	common.Db.Exec(`UPDATE task_items SET status = 'pending', message = '' WHERE task_id = ? AND status = 'running'`, taskID)
 
@@ -644,7 +976,6 @@ func restartBatchPullTask(taskID int64) {
 	rows.Close()
 
 	if len(repos) == 0 {
-		// 没有 pending items，直接标记完成
 		common.Db.Exec(`UPDATE tasks SET status = 'completed', updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID)
 		return
 	}
@@ -656,6 +987,6 @@ func restartBatchPullTask(taskID int64) {
 		updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, taskID, taskID, taskID)
 
 	cancelChan := make(chan struct{})
-	taskCancelChans.Store("batch_pull", cancelChan)
-	go executeBatchPullTask(taskID, repos, cancelChan)
+	taskCancelChans.Store(taskType, cancelChan)
+	go executeFn(taskID, repos, cancelChan)
 }

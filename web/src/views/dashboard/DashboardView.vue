@@ -156,6 +156,25 @@
             </svg>
           </div>
         </button>
+
+        <!-- 更新信息 -->
+        <button class="action-card" @click="handleBatchUpdateInfo" :disabled="batchUpdateLoading">
+          <div class="action-icon action-icon-info">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"/>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+          </div>
+          <div class="action-text">
+            <div class="action-title">更新信息</div>
+            <div class="action-desc">批量更新仓库元信息</div>
+          </div>
+          <div v-if="batchUpdateLoading" class="action-loading">
+            <svg class="loading-spinner" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="32" stroke-dashoffset="32"/>
+            </svg>
+          </div>
+        </button>
       </div>
     </div>
 
@@ -331,6 +350,7 @@ const batchCloneLoading = ref(false)
 const showBatchCloneProgress = ref(false)
 const batchCloneProgress = ref(null)
 const batchPullLoading = ref(false)
+const batchUpdateLoading = ref(false)
 
 // 统计数据
 const statsData = ref({ total: 0, cloned: 0, notCloned: 0 })
@@ -564,6 +584,36 @@ const handleBatchPull = async () => {
   }
 }
 
+// 批量更新仓库信息（任务系统版）
+const handleBatchUpdateInfo = async () => {
+  try {
+    batchUpdateLoading.value = true
+    const { batchUpdateInfoRepos } = await import('@/api/repos')
+    const response = await batchUpdateInfoRepos()
+    const apiData = response.data
+
+    if (apiData && apiData.code === 0) {
+      if (!apiData.data?.task_id) {
+        message.info(apiData.message || '没有需要更新的仓库')
+        batchUpdateLoading.value = false
+        return
+      }
+
+      message.success(apiData.message || '已创建更新信息任务')
+      batchUpdateLoading.value = false
+
+      // 刷新任务列表，启动轮询
+      await tasksStore.fetchTasks({ page_size: 10 })
+      tasksStore.startSSE()
+    } else {
+      throw new Error(apiData?.message || '操作失败')
+    }
+  } catch (error) {
+    batchUpdateLoading.value = false
+    message.error('批量更新信息失败：' + error.message)
+  }
+}
+
 // 格式化时间
 const formatTime = (time) => {
   if (!time) return ''
@@ -585,7 +635,7 @@ const formatTime = (time) => {
 
 // 任务辅助函数
 function taskTypeName(type) {
-  const map = { batch_pull: '一键拉取', batch_clone: '批量克隆', scan: '扫描仓库' }
+  const map = { batch_pull: '一键拉取', batch_clone: '批量克隆', batch_update_info: '更新信息', scan: '扫描仓库' }
   return map[type] || type
 }
 

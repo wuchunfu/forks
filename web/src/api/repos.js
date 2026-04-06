@@ -292,6 +292,14 @@ export function batchPullRepos() {
   })
 }
 
+// 批量更新所有仓库信息
+export function batchUpdateInfoRepos() {
+  return request({
+    url: '/api/repos/batch-update-info',
+    method: 'post'
+  })
+}
+
 // 批量拉取进度 SSE 连接
 export function batchPullSSE(tempToken, onProgress, onComplete, onError) {
   const baseUrl = getApiBaseUrl()

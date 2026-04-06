@@ -64,7 +64,11 @@ func resumeTask(c *gin.Context) {
 		common.Db.Exec(`UPDATE tasks SET status = 'running', updated_at = strftime('%Y-%m-%d %H:%M:%S', 'now','localtime') WHERE id = ?`, id)
 	} else {
 		// goroutine 不存在（重启后），重新启动
-		restartBatchPullTask(taskID)
+		if taskType == "batch_update_info" {
+			restartBatchUpdateInfoTask(taskID)
+		} else {
+			restartBatchPullTask(taskID)
+		}
 	}
 
 	c.JSON(200, gin.H{"code": 0, "message": "任务已恢复"})
@@ -106,7 +110,7 @@ func retryTask(c *gin.Context) {
 		c.JSON(404, gin.H{"code": 404, "message": "任务不存在"})
 		return
 	}
-	if taskType != "batch_pull" {
+	if taskType != "batch_pull" && taskType != "batch_update_info" {
 		c.JSON(400, gin.H{"code": 400, "message": "不支持的任务类型"})
 		return
 	}
@@ -167,7 +171,11 @@ func retryTask(c *gin.Context) {
 	cancelChan := make(chan struct{})
 	taskCancelChans.Store(taskType, cancelChan)
 
-	go executeBatchPullTask(taskIDInt, repos, cancelChan)
+	if taskType == "batch_update_info" {
+		go executeBatchUpdateInfoTask(taskIDInt, repos, cancelChan)
+	} else {
+		go executeBatchPullTask(taskIDInt, repos, cancelChan)
+	}
 
 	c.JSON(200, gin.H{"code": 0, "message": fmt.Sprintf("任务已重新开始，待处理 %d 项", len(repos))})
 }
