@@ -18,7 +18,7 @@ import (
 func SetupMCPServer() *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "forks",
-		Version: "1.0.0",
+		Version: Version,
 	}, nil)
 
 	// list_repos — 列出仓库（支持搜索/筛选）

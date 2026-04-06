@@ -373,6 +373,7 @@ func setupRoutes(r *gin.Engine) {
 
 		// 系统信息接口
 		api.GET("/info", getSystemInfo)
+		api.GET("/version", getVersion)
 
 		// 代码查看接口
 		api.GET("/repos/:id/files", getRepoFiles)

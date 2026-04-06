@@ -622,9 +622,20 @@ func getSystemInfo(c *gin.Context) {
 		"code": 0,
 		"data": gin.H{
 			"store_root_path": config.StoreRootPath,
-			"version":         "1.0.0",
+			"version":         utils.Version,
 		},
 		"message": "success",
+	})
+}
+
+// getVersion 获取版本号
+func getVersion(c *gin.Context) {
+	c.JSON(200, gin.H{
+		"code":    0,
+		"message": "success",
+		"data": gin.H{
+			"version": utils.Version,
+		},
 	})
 }
 

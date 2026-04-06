@@ -102,6 +102,14 @@ export function getSystemInfo() {
   })
 }
 
+// 获取版本号
+export function getVersion() {
+  return request({
+    url: '/api/version',
+    method: 'get'
+  })
+}
+
 // 更新仓库信息
 export function updateRepoInfo(id) {
   return request({
