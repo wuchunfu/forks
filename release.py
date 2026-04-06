@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 VERSION_FILE = Path(__file__).parent / "VERSION"
+MSG_FILE = Path(__file__).parent / "msg.txt"
 
 
 def read_version() -> str:
@@ -63,12 +64,21 @@ def main():
 
     print(f"版本升级: {old_version} → {new_version}")
 
+    # 读取 release notes
+    if not MSG_FILE.exists():
+        print("错误: 未找到 msg.txt，请先运行 python gen_release_notes.py")
+        sys.exit(1)
+
+    release_notes = MSG_FILE.read_text(encoding="utf-8").strip()
+    MSG_FILE.unlink()
+    print("已读取并删除 msg.txt")
+
     # 写入新版本号
     write_version(new_version)
 
     # 提交
     run_git("add", "VERSION")
-    run_git("commit", "-m", f"release: v{new_version}")
+    run_git("commit", "-m", release_notes)
     print("已提交")
 
     # 推送
