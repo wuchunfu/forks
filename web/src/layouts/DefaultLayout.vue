@@ -40,8 +40,7 @@ function leave(el, done) {
 
 <style scoped>
 .content-wrapper {
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
   padding: 0 24px;
 }
 

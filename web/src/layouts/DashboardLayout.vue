@@ -231,12 +231,7 @@ onUnmounted(() => {
   min-height: calc(100vh - var(--navbar-height));
 }
 
-/* 内容区容器最大宽度 */
-.dashboard-content > * {
-  max-width: 1400px;
-  margin-left: auto;
-  margin-right: auto;
-}
+/* 内容区子元素不限制最大宽度，充分利用屏幕 */
 
 /* 响应式内边距 */
 @media (max-width: 768px) {

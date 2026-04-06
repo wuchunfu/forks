@@ -219,10 +219,7 @@ const totalPages = computed(() => {
 
 const gridStyle = computed(() => {
   return {
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: props.cardSize === 'small' ? '12px' : '16px',
-    maxWidth: '1200px',
-    margin: '0 auto 24px auto'
+    gap: props.cardSize === 'small' ? '12px' : '16px'
   }
 })
 
@@ -354,10 +351,8 @@ defineExpose({
 
 .card-view__grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 16px;
-  max-width: 1200px;
-  margin: 0 auto 24px auto;
   width: 100%;
 }
 
@@ -426,32 +421,10 @@ defineExpose({
 }
 
 /* 响应式设计 */
-@media (max-width: 1400px) {
-  .card-view__grid {
-    max-width: 1000px;
-    gap: 14px;
-  }
-}
-
-@media (max-width: 1200px) {
-  .card-view__grid {
-    max-width: 900px;
-    gap: 12px;
-  }
-}
-
-@media (max-width: 900px) {
-  .card-view__grid {
-    max-width: 100%;
-    gap: 16px;
-  }
-}
-
 @media (max-width: 768px) {
   .card-view__grid {
     grid-template-columns: 1fr !important;
     gap: 12px;
-    max-width: 100%;
   }
 
   .card-view__toolbar {
