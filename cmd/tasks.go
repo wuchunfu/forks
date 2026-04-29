@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"forks.com/m/common"
+	"github.com/cicbyte/forks/common"
 )
 
 // resumeRunningTasks 服务启动时将未完成任务标记为暂停，由用户手动恢复

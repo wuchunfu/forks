@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"forks.com/m/models"
+	"github.com/cicbyte/forks/models"
 
 	"golang.org/x/net/html"
 )

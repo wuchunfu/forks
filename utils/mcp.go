@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"forks.com/m/common"
+	"github.com/cicbyte/forks/common"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )

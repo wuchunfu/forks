@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"forks.com/m/common"
-	"forks.com/m/models"
-	"forks.com/m/utils"
+	"github.com/cicbyte/forks/common"
+	"github.com/cicbyte/forks/models"
+	"github.com/cicbyte/forks/utils"
 )
 
 var (

@@ -11,8 +11,8 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
-	"forks.com/m/models"
-	"forks.com/m/utils"
+	"github.com/cicbyte/forks/models"
+	"github.com/cicbyte/forks/utils"
 )
 
 var (

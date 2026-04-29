@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"forks.com/m/models"
+	"github.com/cicbyte/forks/models"
 
 	"github.com/antchfx/htmlquery"
 	"golang.org/x/net/html"

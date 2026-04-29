@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"strings"
 
-	"forks.com/m/common"
-	"forks.com/m/models"
+	"github.com/cicbyte/forks/common"
+	"github.com/cicbyte/forks/models"
 
 	"github.com/antchfx/htmlquery"
 	"golang.org/x/net/html"

@@ -8,7 +8,7 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"forks.com/m/models"
+	"github.com/cicbyte/forks/models"
 )
 
 var ConfigInstance = Config{}

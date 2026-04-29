@@ -3,8 +3,8 @@ package main
 import (
 	"embed"
 
-	"forks.com/m/assets"
-	"forks.com/m/cmd"
+	"github.com/cicbyte/forks/assets"
+	"github.com/cicbyte/forks/cmd"
 )
 
 //go:embed web/dist
