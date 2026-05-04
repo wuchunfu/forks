@@ -699,12 +699,51 @@ func getTrending(c *gin.Context) {
 		return
 	}
 
+	// 批量查询已存在的仓库 URL
+	existingURLs := make(map[string]bool)
+	if len(repos) > 0 {
+		urls := make([]string, 0, len(repos))
+		for _, r := range repos {
+			urls = append(urls, r.URL)
+		}
+		placeholders := make([]string, 0, len(urls))
+		args := make([]interface{}, 0, len(urls))
+		for _, u := range urls {
+			placeholders = append(placeholders, "?")
+			args = append(args, u)
+		}
+		query := "SELECT url FROM repos WHERE url IN (" + strings.Join(placeholders, ",") + ")"
+		rows, err := common.Db.Query(query, args...)
+		if err == nil {
+			for rows.Next() {
+				var u string
+				if rows.Scan(&u) == nil {
+					existingURLs[u] = true
+				}
+			}
+			rows.Close()
+		}
+	}
+
+	type TrendingRepoWithExists struct {
+		utils.TrendingRepo
+		Exists bool `json:"_exists"`
+	}
+
+	items := make([]TrendingRepoWithExists, 0, len(repos))
+	for _, r := range repos {
+		items = append(items, TrendingRepoWithExists{
+			TrendingRepo: r,
+			Exists:       existingURLs[r.URL],
+		})
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "success",
 		"data": gin.H{
 			"count": len(repos),
-			"items": repos,
+			"items": items,
 		},
 	})
 }

@@ -99,13 +99,23 @@
               {{ repo.author }} / {{ repo.repo }}
             </a>
             <n-button
+              v-if="repo._exists || repo._added"
               size="tiny"
-              :type="repo._added ? 'success' : 'default'"
+              type="success"
+              ghost
+              disabled
+            >
+              已添加
+            </n-button>
+            <n-button
+              v-else
+              size="tiny"
+              type="default"
               ghost
               @click="handleAddRepo(repo)"
               :loading="repo._adding"
             >
-              {{ repo._added ? '已添加' : '+ 添加' }}
+              + 添加
             </n-button>
           </div>
           <p class="repo-desc">{{ repo.description }}</p>
@@ -130,6 +140,32 @@
           <span v-if="repo.current_period_stars > 0" class="meta-item stars-today">
             +{{ formatNum(repo.current_period_stars) }} {{ sinceLabel }}
           </span>
+          <a
+            :href="'https://deepwiki.com/' + repo.author + '/' + repo.repo"
+            target="_blank"
+            rel="noopener"
+            class="meta-item ext-link"
+            title="在 DeepWiki 中查看"
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+            </svg>
+            DeepWiki
+          </a>
+          <a
+            :href="'https://zread.ai/' + repo.author + '/' + repo.repo"
+            target="_blank"
+            rel="noopener"
+            class="meta-item ext-link"
+            title="在 ZRead 中查看"
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            ZRead
+          </a>
         </div>
         <div v-if="repo.built_by && repo.built_by.length > 0" class="card-built-by">
           <img
@@ -224,6 +260,7 @@ async function loadTrending(forceRefresh = false) {
     const res = await getTrending(params)
     trendingRepos.value = (res.data.data.items || []).map(r => ({
       ...r,
+      _exists: r._exists || false,
       _adding: false,
       _added: false
     }))
@@ -473,6 +510,21 @@ onMounted(() => {
 .stars-today {
   color: var(--color-success);
   font-weight: var(--font-medium);
+}
+
+.ext-link {
+  color: var(--color-text-tertiary);
+  text-decoration: none;
+  margin-left: auto;
+  transition: color 0.2s;
+}
+
+.ext-link + .ext-link {
+  margin-left: 0;
+}
+
+.ext-link:hover {
+  color: var(--color-primary);
 }
 
 .card-built-by {

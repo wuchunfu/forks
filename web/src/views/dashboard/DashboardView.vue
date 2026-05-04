@@ -212,6 +212,33 @@
             <span v-if="repo.current_period_stars > 0" class="meta-item stars-today">
               +{{ formatTrendingNum(repo.current_period_stars) }}
             </span>
+            <span v-if="repo._exists" class="meta-item added-badge">已添加</span>
+            <a
+              :href="'https://deepwiki.com/' + repo.author + '/' + repo.repo"
+              target="_blank"
+              rel="noopener"
+              class="meta-item ext-link"
+              title="DeepWiki"
+            >
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+              </svg>
+              Wiki
+            </a>
+            <a
+              :href="'https://zread.ai/' + repo.author + '/' + repo.repo"
+              target="_blank"
+              rel="noopener"
+              class="meta-item ext-link"
+              title="ZRead"
+            >
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              ZRead
+            </a>
           </div>
         </div>
       </div>
@@ -1337,5 +1364,25 @@ watch(() => tasksStore.hasRunning, (newVal, oldVal) => {
   padding: var(--space-6);
   color: var(--color-text-tertiary);
   font-size: var(--text-sm);
+}
+
+.trending-stats .added-badge {
+  color: var(--color-success);
+  font-weight: var(--font-medium);
+}
+
+.trending-stats .ext-link {
+  color: var(--color-text-tertiary);
+  text-decoration: none;
+  margin-left: auto;
+  transition: color 0.2s;
+}
+
+.trending-stats .ext-link + .ext-link {
+  margin-left: 0;
+}
+
+.trending-stats .ext-link:hover {
+  color: var(--color-primary);
 }
 </style>
