@@ -1,5 +1,5 @@
 <template>
-  <n-drawer v-model:show="visible" :width="600" placement="right">
+  <n-drawer v-model:show="visible" :width="680" placement="right">
     <n-drawer-content title="仓库详细信息" closable>
       <div v-if="repo" class="repo-detail">
         <n-space vertical size="large">
@@ -21,6 +21,32 @@
                 <n-button text @click="$emit('open-repo', repo.url)">
                   {{ repo.url }}
                 </n-button>
+              </n-descriptions-item>
+              <n-descriptions-item v-if="isGithubRepo" label="快捷链接">
+                <n-space size="small" :wrap="false">
+                  <n-button
+                    text
+                    type="primary"
+                    tag="a"
+                    :href="'https://deepwiki.com/' + repo.author + '/' + repo.repo"
+                    target="_blank"
+                    rel="noopener"
+                    size="small"
+                  >
+                    DeepWiki
+                  </n-button>
+                  <n-button
+                    text
+                    type="primary"
+                    tag="a"
+                    :href="'https://zread.ai/' + repo.author + '/' + repo.repo"
+                    target="_blank"
+                    rel="noopener"
+                    size="small"
+                  >
+                    ZRead
+                  </n-button>
+                </n-space>
               </n-descriptions-item>
               <n-descriptions-item v-if="gitMirrorUrl" label="镜像克隆">
                 <n-tooltip trigger="hover">
@@ -156,6 +182,11 @@ const gitMirrorUrl = computed(() => {
   if (!props.repo || !props.repo.source || !props.repo.author || !props.repo.repo) return ''
   const origin = window.location.origin
   return `${origin}/git/${props.repo.source}/${props.repo.author}/${props.repo.repo}.git`
+})
+
+const isGithubRepo = computed(() => {
+  if (!props.repo || !props.repo.url) return false
+  return props.repo.url.includes('github.com')
 })
 
 // 复制镜像地址
