@@ -178,6 +178,49 @@
       </div>
     </div>
 
+    <!-- 今日热门 -->
+    <div class="trending-preview">
+      <div class="section-header">
+        <div class="section-title">今日热门</div>
+        <button class="view-all-btn" @click="router.push('/trending')">查看更多</button>
+      </div>
+
+      <div v-if="trendingLoading" class="trending-loading">
+        <div class="loading-skeleton" v-for="i in 3" :key="i"></div>
+      </div>
+
+      <div v-else-if="trendingRepos.length > 0" class="trending-list">
+        <div v-for="(repo, idx) in trendingRepos" :key="repo.url" class="trending-item">
+          <span class="trending-rank">{{ idx + 1 }}</span>
+          <div class="trending-info">
+            <a :href="repo.url" target="_blank" rel="noopener" class="trending-name">
+              {{ repo.author }} / {{ repo.repo }}
+            </a>
+            <p class="trending-desc">{{ repo.description }}</p>
+          </div>
+          <div class="trending-stats">
+            <span v-if="repo.language" class="meta-item">
+              <span class="lang-dot" :style="{ backgroundColor: repo.language_color || '#ccc' }"></span>
+              {{ repo.language }}
+            </span>
+            <span class="meta-item">
+              <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
+                <path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/>
+              </svg>
+              {{ formatTrendingNum(repo.stars) }}
+            </span>
+            <span v-if="repo.current_period_stars > 0" class="meta-item stars-today">
+              +{{ formatTrendingNum(repo.current_period_stars) }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div v-else class="trending-empty">
+        <span>暂无趋势数据</span>
+      </div>
+    </div>
+
     <!-- 最近活动列表 -->
     <div class="recent-activities">
       <div class="section-header">
@@ -328,6 +371,7 @@ import { useMessage, useModal } from 'naive-ui'
 import { useReposStore } from '@/stores/repos'
 import { useTasksStore } from '@/stores/tasks'
 import { getStats, getActivities } from '@/api/repos'
+import { getTrending } from '@/api/trending'
 import AddRepoModal from '@/components/AddRepoModal.vue'
 import BatchCloneModal from '@/components/BatchCloneModal.vue'
 
@@ -358,6 +402,29 @@ const statsData = ref({ total: 0, cloned: 0, notCloned: 0 })
 // 最近活动数据
 const recentActivities = ref([])
 const activitiesLoading = ref(false)
+
+// 趋势数据
+const trendingRepos = ref([])
+const trendingLoading = ref(false)
+
+// 加载趋势数据
+const loadTrendingPreview = async () => {
+  try {
+    trendingLoading.value = true
+    const res = await getTrending({ since: 'daily' })
+    trendingRepos.value = (res.data.data.items || []).slice(0, 5)
+  } catch {
+    // 静默失败，不影响首页
+  } finally {
+    trendingLoading.value = false
+  }
+}
+
+function formatTrendingNum(n) {
+  if (!n) return '0'
+  if (n >= 1000) return (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + 'k'
+  return n.toLocaleString()
+}
 
 // 加载活动记录
 const loadActivities = async () => {
@@ -654,7 +721,8 @@ onMounted(async () => {
   await Promise.all([
     loadStatistics(),
     loadActivities(),
-    tasksStore.fetchTasks({ page_size: 10 })
+    tasksStore.fetchTasks({ page_size: 10 }),
+    loadTrendingPreview()
   ])
   tasksStore.startSSE()
 })
@@ -1152,5 +1220,122 @@ watch(() => tasksStore.hasRunning, (newVal, oldVal) => {
 .task-status-badge.status-running {
   color: var(--color-info);
   background: var(--color-info-50);
+}
+
+/* ============================================
+   TRENDING PREVIEW - 今日热门
+   ============================================ */
+
+.trending-preview {
+  background-color: var(--color-bg-card);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+.trending-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.trending-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.trending-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  transition: background-color 0.2s ease;
+}
+
+.trending-item:hover {
+  background-color: var(--color-gray-50);
+}
+
+.trending-rank {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  color: var(--color-text-tertiary);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-gray-100);
+  flex-shrink: 0;
+}
+
+.trending-item:nth-child(1) .trending-rank { color: #fff; background-color: #f59e0b; }
+.trending-item:nth-child(2) .trending-rank { color: #fff; background-color: #94a3b8; }
+.trending-item:nth-child(3) .trending-rank { color: #fff; background-color: #b45309; }
+
+.trending-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.trending-name {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-primary);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.trending-name:hover {
+  text-decoration: underline;
+}
+
+.trending-desc {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  margin: 2px 0 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trending-stats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.trending-stats .meta-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.trending-stats .lang-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.trending-stats .stars-today {
+  color: var(--color-success);
+  font-weight: var(--font-medium);
+}
+
+.trending-empty {
+  text-align: center;
+  padding: var(--space-6);
+  color: var(--color-text-tertiary);
+  font-size: var(--text-sm);
 }
 </style>
