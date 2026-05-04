@@ -345,58 +345,62 @@
         <div class="settings-panel">
           <div class="panel-header">
             <h2 class="panel-title">MCP 工具</h2>
-            <p class="panel-desc">Forks 提供的 Model Context Protocol 工具列表，供 AI 助手调用</p>
+            <p class="panel-desc">Forks 提供的 Model Context Protocol 工具，供 AI 助手调用</p>
           </div>
 
-          <div class="mcp-tools">
-            <div
-              v-for="tool in mcpTools"
-              :key="tool.name"
-              class="mcp-tool-card"
-              :class="{ 'is-expanded': tool._expanded }"
-              @click="tool._expanded = !tool._expanded"
-            >
-              <div class="mcp-tool-header">
-                <div class="mcp-tool-title-row">
-                  <span class="mcp-tool-name">{{ tool.name }}</span>
-                  <span v-for="tag in tool.tags" :key="tag" class="mcp-tool-tag" :class="'tag-' + tag">{{ tag }}</span>
+          <n-tabs v-model:value="mcpSubTab" type="line" size="small" class="mcp-sub-tabs">
+            <n-tab-pane name="tools" tab="工具列表">
+              <div class="mcp-tools">
+                <div
+                  v-for="tool in mcpTools"
+                  :key="tool.name"
+                  class="mcp-tool-card"
+                  :class="{ 'is-expanded': tool._expanded }"
+                  @click="tool._expanded = !tool._expanded"
+                >
+                  <div class="mcp-tool-header">
+                    <div class="mcp-tool-title-row">
+                      <span class="mcp-tool-name">{{ tool.name }}</span>
+                    </div>
+                    <div class="mcp-tool-desc">{{ tool.description }}</div>
+                  </div>
+                  <div v-if="tool.params.length > 0" class="mcp-tool-params" v-show="tool._expanded">
+                    <table class="mcp-params-table">
+                      <thead>
+                        <tr>
+                          <th style="width: 1%">参数</th>
+                          <th style="width: 1%">类型</th>
+                          <th style="width: 1%">必填</th>
+                          <th>说明</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="p in tool.params" :key="p.name">
+                          <td><code class="mcp-param-name">{{ p.name }}</code></td>
+                          <td><span class="mcp-type-badge" :class="'type-' + p.type">{{ p.type }}</span></td>
+                          <td>
+                            <span v-if="p.required" class="mcp-required">*</span>
+                            <span v-else class="mcp-optional">-</span>
+                          </td>
+                          <td>{{ p.description }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div v-if="tool.params.length === 0" class="mcp-tool-params mcp-no-params" v-show="tool._expanded">
+                    <span>无需参数</span>
+                  </div>
                 </div>
-                <div class="mcp-tool-desc">{{ tool.description }}</div>
               </div>
-              <div v-if="tool.params.length > 0" class="mcp-tool-params" v-show="tool._expanded">
-                <table class="mcp-params-table">
-                  <thead>
-                    <tr>
-                      <th style="width: 1%">参数</th>
-                      <th style="width: 1%">类型</th>
-                      <th style="width: 1%">必填</th>
-                      <th>说明</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="p in tool.params" :key="p.name">
-                      <td><code class="mcp-param-name">{{ p.name }}</code></td>
-                      <td><span class="mcp-type-badge" :class="'type-' + p.type">{{ p.type }}</span></td>
-                      <td>
-                        <span v-if="p.required" class="mcp-required">*</span>
-                        <span v-else class="mcp-optional">-</span>
-                      </td>
-                      <td>{{ p.description }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div v-if="tool.params.length === 0" class="mcp-tool-params mcp-no-params" v-show="tool._expanded">
-                <span>无需参数</span>
-              </div>
-            </div>
-          </div>
+            </n-tab-pane>
 
-          <div class="mcp-config-section">
-            <div class="section-subtitle">MCP 配置示例</div>
-            <p class="panel-desc" style="margin-bottom: 12px">将以下配置添加到你的 AI 客户端（如 Claude Desktop、Cursor 等）</p>
-            <div class="codemirror-container" ref="mcpCodeRef"></div>
-          </div>
+            <n-tab-pane name="config" tab="配置">
+              <div class="codemirror-wrapper">
+                <button class="codemirror-copy-btn" @click="copyMcpConfig" title="复制">复制</button>
+                <div class="codemirror-container" ref="mcpCodeRef"></div>
+              </div>
+            </n-tab-pane>
+          </n-tabs>
         </div>
       </n-tab-pane>
 
@@ -451,7 +455,7 @@
  * - 平台代理独立开关
  * - 保存和重置按钮
  */
-import { ref, reactive, onMounted, watch, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { useMessage, NTabs, NTabPane } from 'naive-ui'
 import {
   GitNetworkOutline,
@@ -788,6 +792,7 @@ onMounted(() => {
 
 // ==================== MCP 工具 ====================
 
+const mcpSubTab = ref('tools')
 const mcpCodeRef = ref(null)
 let mcpEditorView = null
 
@@ -795,7 +800,6 @@ const mcpTools = reactive([
   {
     name: 'list_repos',
     description: '列出仓库，支持搜索和筛选。可按关键词、作者、克隆状态、平台来源筛选，支持分页。',
-    tags: ['查询'],
     _expanded: false,
     params: [
       { name: 'search', type: 'string', required: false, description: '搜索关键词，匹配作者/仓库名/描述' },
@@ -809,7 +813,7 @@ const mcpTools = reactive([
   {
     name: 'add_repo',
     description: '通过 URL 添加仓库到收藏列表。支持 GitHub 和 Gitee 平台。',
-    tags: ['写入'],
+    tags: [],
     _expanded: false,
     params: [
       { name: 'url', type: 'string', required: true, description: '仓库 URL，如 https://github.com/owner/repo' }
@@ -818,7 +822,6 @@ const mcpTools = reactive([
   {
     name: 'get_repo',
     description: '根据 ID 获取单个仓库的详细信息。',
-    tags: ['查询'],
     _expanded: false,
     params: [
       { name: 'id', type: 'string', required: true, description: '仓库 ID' }
@@ -827,7 +830,7 @@ const mcpTools = reactive([
   {
     name: 'update_repo_info',
     description: '从远程平台获取并更新仓库的最新信息（stars、forks、描述等）。',
-    tags: ['写入'],
+    tags: [],
     _expanded: false,
     params: [
       { name: 'id', type: 'string', required: true, description: '仓库 ID' }
@@ -836,14 +839,12 @@ const mcpTools = reactive([
   {
     name: 'get_stats',
     description: '获取仓库统计信息，包括总数、已克隆数、未克隆数、作者数。',
-    tags: ['查询'],
     _expanded: false,
     params: []
   },
   {
     name: 'list_repo_files',
     description: '获取仓库的文件目录树结构。仅对已克隆的仓库有效。',
-    tags: ['查询', '文件'],
     _expanded: false,
     params: [
       { name: 'id', type: 'string', required: true, description: '仓库 ID' },
@@ -854,7 +855,6 @@ const mcpTools = reactive([
   {
     name: 'read_repo_file',
     description: '读取仓库中指定文件的文本内容。仅支持文本文件，二进制文件会返回错误。',
-    tags: ['查询', '文件'],
     _expanded: false,
     params: [
       { name: 'id', type: 'string', required: true, description: '仓库 ID' },
@@ -863,21 +863,52 @@ const mcpTools = reactive([
   }
 ])
 
-const mcpConfigJson = JSON.stringify({
-  mcpServers: {
-    forks: {
-      command: 'forks',
-      args: ['mcp'],
-      description: 'Forks Git 仓库管理工具'
+const mcpConfigDisplay = computed(() => {
+  const hasToken = !!localStorage.getItem('token')
+  const config = {
+    servers: {
+      forks: {
+        type: 'http',
+        url: `${window.location.origin}/mcp`
+      }
     }
   }
-}, null, 2)
+  if (hasToken) {
+    config.servers.forks.headers = {
+      Authorization: 'Bearer <your-token>'
+    }
+  }
+  return JSON.stringify(config, null, 2)
+})
+
+function copyMcpConfig() {
+  const token = localStorage.getItem('token') || ''
+  const config = {
+    servers: {
+      forks: {
+        type: 'http',
+        url: `${window.location.origin}/mcp`
+      }
+    }
+  }
+  if (token) {
+    config.servers.forks.headers = {
+      Authorization: `Bearer ${token}`
+    }
+  }
+  copyToClipboard(JSON.stringify(config, null, 2))
+  message.success('已复制完整配置')
+}
 
 function initMCPCodeMirror() {
-  if (!mcpCodeRef.value || mcpEditorView) return
+  if (!mcpCodeRef.value) return
+  if (mcpEditorView) {
+    mcpEditorView.destroy()
+    mcpEditorView = null
+  }
   mcpEditorView = new EditorView({
     state: EditorState.create({
-      doc: mcpConfigJson,
+      doc: mcpConfigDisplay.value,
       extensions: [
         json(),
         dracula,
@@ -895,8 +926,8 @@ function initMCPCodeMirror() {
   })
 }
 
-watch(activeTab, (val) => {
-  if (val === 'mcp') {
+watch([activeTab, mcpSubTab], ([tab, sub]) => {
+  if (tab === 'mcp' && sub === 'config') {
     nextTick(() => initMCPCodeMirror())
   }
 })
@@ -1613,32 +1644,6 @@ watch(activeTab, (val) => {
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
 }
 
-.mcp-tool-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 6px;
-  height: 18px;
-  border-radius: 9px;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1;
-}
-
-.mcp-tool-tag.tag-查询 {
-  background-color: var(--color-info-50);
-  color: var(--color-info);
-}
-
-.mcp-tool-tag.tag-写入 {
-  background-color: var(--color-warning-50);
-  color: var(--color-warning-600);
-}
-
-.mcp-tool-tag.tag-文件 {
-  background-color: #f0fdf4;
-  color: #16a34a;
-}
-
 .mcp-tool-desc {
   font-size: 13px;
   color: var(--color-text-tertiary);
@@ -1721,20 +1726,41 @@ watch(activeTab, (val) => {
   color: var(--color-text-quaternary);
 }
 
-.mcp-config-section {
-  margin-top: var(--space-4);
-}
-
-.section-subtitle {
-  font-size: var(--text-lg);
-  font-weight: var(--font-semibold);
-  color: var(--color-text-primary);
-  margin-bottom: var(--space-2);
-}
-
-.codemirror-container {
+.codemirror-wrapper {
+  position: relative;
   border-radius: var(--radius-md);
   overflow: hidden;
   border: 1px solid var(--color-border-light);
+}
+
+.codemirror-container {
+  border-radius: 0;
+  border: none;
+}
+
+.codemirror-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border-light);
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  opacity: 0;
+}
+
+.codemirror-wrapper:hover .codemirror-copy-btn {
+  opacity: 1;
+}
+
+.codemirror-copy-btn:hover {
+  background: var(--color-primary-50);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 </style>
