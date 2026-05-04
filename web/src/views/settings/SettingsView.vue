@@ -346,6 +346,66 @@
         </div>
       </n-tab-pane>
 
+      <!-- MCP -->
+      <n-tab-pane name="mcp" tab="MCP">
+        <div class="settings-panel">
+          <div class="panel-header">
+            <h2 class="panel-title">MCP 工具</h2>
+            <p class="panel-desc">Forks 提供的 Model Context Protocol 工具列表，供 AI 助手调用</p>
+          </div>
+
+          <div class="mcp-tools">
+            <div
+              v-for="tool in mcpTools"
+              :key="tool.name"
+              class="mcp-tool-card"
+              :class="{ 'is-expanded': tool._expanded }"
+              @click="tool._expanded = !tool._expanded"
+            >
+              <div class="mcp-tool-header">
+                <div class="mcp-tool-title-row">
+                  <span class="mcp-tool-name">{{ tool.name }}</span>
+                  <span v-for="tag in tool.tags" :key="tag" class="mcp-tool-tag" :class="'tag-' + tag">{{ tag }}</span>
+                </div>
+                <div class="mcp-tool-desc">{{ tool.description }}</div>
+              </div>
+              <div v-if="tool.params.length > 0" class="mcp-tool-params" v-show="tool._expanded">
+                <table class="mcp-params-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 1%">参数</th>
+                      <th style="width: 1%">类型</th>
+                      <th style="width: 1%">必填</th>
+                      <th>说明</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="p in tool.params" :key="p.name">
+                      <td><code class="mcp-param-name">{{ p.name }}</code></td>
+                      <td><span class="mcp-type-badge" :class="'type-' + p.type">{{ p.type }}</span></td>
+                      <td>
+                        <span v-if="p.required" class="mcp-required">*</span>
+                        <span v-else class="mcp-optional">-</span>
+                      </td>
+                      <td>{{ p.description }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div v-if="tool.params.length === 0" class="mcp-tool-params mcp-no-params" v-show="tool._expanded">
+                <span>无需参数</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mcp-config-section">
+            <div class="section-subtitle">MCP 配置示例</div>
+            <p class="panel-desc" style="margin-bottom: 12px">将以下配置添加到你的 AI 客户端（如 Claude Desktop、Cursor 等）</p>
+            <div class="codemirror-container" ref="mcpCodeRef"></div>
+          </div>
+        </div>
+      </n-tab-pane>
+
       <!-- 关于 -->
       <n-tab-pane name="about" tab="关于">
         <div class="settings-panel">
@@ -397,7 +457,7 @@
  * - 平台代理独立开关
  * - 保存和重置按钮
  */
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch, nextTick } from 'vue'
 import { useMessage, NTabs, NTabPane } from 'naive-ui'
 import {
   GitNetworkOutline,
@@ -409,6 +469,11 @@ import {
 import { getProxyConfig, updateProxyConfig, getTokenInfo, updateToken, getVersion } from '@/api/repos'
 import { getSyncConfig, updateSyncConfig, syncNow, getTrendingLanguages } from '@/api/trending'
 import { copyToClipboard } from '@/utils/clipboard'
+import { EditorView, lineNumbers, highlightActiveLineGutter } from '@codemirror/view'
+import { EditorState } from '@codemirror/state'
+import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import { json } from '@codemirror/lang-json'
+import { dracula } from '@uiw/codemirror-theme-dracula'
 
 const message = useMessage()
 
@@ -725,6 +790,121 @@ onMounted(() => {
   loadVersion()
   loadSyncConfig()
   loadSyncLanguageOptions()
+})
+
+// ==================== MCP 工具 ====================
+
+const mcpCodeRef = ref(null)
+let mcpEditorView = null
+
+const mcpTools = reactive([
+  {
+    name: 'list_repos',
+    description: '列出仓库，支持搜索和筛选。可按关键词、作者、克隆状态、平台来源筛选，支持分页。',
+    tags: ['查询'],
+    _expanded: false,
+    params: [
+      { name: 'search', type: 'string', required: false, description: '搜索关键词，匹配作者/仓库名/描述' },
+      { name: 'status', type: 'string', required: false, description: '克隆状态筛选：cloned 或 not-cloned' },
+      { name: 'author', type: 'string', required: false, description: '按作者筛选' },
+      { name: 'source', type: 'string', required: false, description: '平台来源：github 或 gitee' },
+      { name: 'page', type: 'number', required: false, description: '页码，默认1' },
+      { name: 'page_size', type: 'number', required: false, description: '每页条数，默认10，最大100' }
+    ]
+  },
+  {
+    name: 'add_repo',
+    description: '通过 URL 添加仓库到收藏列表。支持 GitHub 和 Gitee 平台。',
+    tags: ['写入'],
+    _expanded: false,
+    params: [
+      { name: 'url', type: 'string', required: true, description: '仓库 URL，如 https://github.com/owner/repo' }
+    ]
+  },
+  {
+    name: 'get_repo',
+    description: '根据 ID 获取单个仓库的详细信息。',
+    tags: ['查询'],
+    _expanded: false,
+    params: [
+      { name: 'id', type: 'string', required: true, description: '仓库 ID' }
+    ]
+  },
+  {
+    name: 'update_repo_info',
+    description: '从远程平台获取并更新仓库的最新信息（stars、forks、描述等）。',
+    tags: ['写入'],
+    _expanded: false,
+    params: [
+      { name: 'id', type: 'string', required: true, description: '仓库 ID' }
+    ]
+  },
+  {
+    name: 'get_stats',
+    description: '获取仓库统计信息，包括总数、已克隆数、未克隆数、作者数。',
+    tags: ['查询'],
+    _expanded: false,
+    params: []
+  },
+  {
+    name: 'list_repo_files',
+    description: '获取仓库的文件目录树结构。仅对已克隆的仓库有效。',
+    tags: ['查询', '文件'],
+    _expanded: false,
+    params: [
+      { name: 'id', type: 'string', required: true, description: '仓库 ID' },
+      { name: 'depth', type: 'number', required: false, description: '目录遍历深度，默认3，最大10' },
+      { name: 'sub_path', type: 'string', required: false, description: '子目录路径，为空表示仓库根目录' }
+    ]
+  },
+  {
+    name: 'read_repo_file',
+    description: '读取仓库中指定文件的文本内容。仅支持文本文件，二进制文件会返回错误。',
+    tags: ['查询', '文件'],
+    _expanded: false,
+    params: [
+      { name: 'id', type: 'string', required: true, description: '仓库 ID' },
+      { name: 'path', type: 'string', required: true, description: '文件在仓库中的相对路径' }
+    ]
+  }
+])
+
+const mcpConfigJson = JSON.stringify({
+  mcpServers: {
+    forks: {
+      command: 'forks',
+      args: ['mcp'],
+      description: 'Forks Git 仓库管理工具'
+    }
+  }
+}, null, 2)
+
+function initMCPCodeMirror() {
+  if (!mcpCodeRef.value || mcpEditorView) return
+  mcpEditorView = new EditorView({
+    state: EditorState.create({
+      doc: mcpConfigJson,
+      extensions: [
+        json(),
+        dracula,
+        lineNumbers(),
+        highlightActiveLineGutter(),
+        syntaxHighlighting(defaultHighlightStyle),
+        EditorView.editable.of(false),
+        EditorView.theme({
+          '&': { height: 'auto', fontSize: '13px' },
+          '.cm-scroller': { maxHeight: '300px', overflow: 'auto' }
+        })
+      ]
+    }),
+    parent: mcpCodeRef.value
+  })
+}
+
+watch(activeTab, (val) => {
+  if (val === 'mcp') {
+    nextTick(() => initMCPCodeMirror())
+  }
 })
 </script>
 
@@ -1411,5 +1591,177 @@ onMounted(() => {
 .section-desc {
   font-size: var(--text-xs);
   color: var(--color-text-tertiary);
+}
+
+/* ============================================
+   MCP TOOLS
+   ============================================ */
+
+.mcp-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: var(--space-6);
+}
+
+.mcp-tool-card {
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-page);
+  border: 1px solid var(--color-border-light);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  overflow: hidden;
+}
+
+.mcp-tool-card:hover {
+  border-color: var(--color-primary-200);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.mcp-tool-card.is-expanded {
+  border-color: var(--color-primary);
+}
+
+.mcp-tool-header {
+  padding: 12px 16px;
+}
+
+.mcp-tool-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.mcp-tool-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-primary);
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.mcp-tool-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  height: 18px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.mcp-tool-tag.tag-查询 {
+  background-color: var(--color-info-50);
+  color: var(--color-info);
+}
+
+.mcp-tool-tag.tag-写入 {
+  background-color: var(--color-warning-50);
+  color: var(--color-warning-600);
+}
+
+.mcp-tool-tag.tag-文件 {
+  background-color: #f0fdf4;
+  color: #16a34a;
+}
+
+.mcp-tool-desc {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  line-height: 1.4;
+}
+
+.mcp-tool-card.is-expanded .mcp-tool-desc {
+  color: var(--color-text-secondary);
+}
+
+.mcp-tool-params {
+  border-top: 1px solid var(--color-border-light);
+  padding: 8px 16px 12px;
+  animation: slideDown 0.15s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.mcp-no-params {
+  text-align: center;
+  padding: 12px 16px;
+  color: var(--color-text-quaternary);
+  font-size: 12px;
+}
+
+.mcp-params-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.mcp-params-table th {
+  text-align: left;
+  padding: 6px 10px;
+  background-color: var(--color-gray-50);
+  color: var(--color-text-tertiary);
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.mcp-params-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--color-border-light);
+  color: var(--color-text-secondary);
+}
+
+.mcp-params-table tr:last-child td {
+  border-bottom: none;
+}
+
+.mcp-param-name {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.mcp-type-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.mcp-type-badge.type-string { background: #dbeafe; color: #2563eb; }
+.mcp-type-badge.type-number { background: #dcfce7; color: #16a34a; }
+
+.mcp-required {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.mcp-optional {
+  color: var(--color-text-quaternary);
+}
+
+.mcp-config-section {
+  margin-top: var(--space-4);
+}
+
+.section-subtitle {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.codemirror-container {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-border-light);
 }
 </style>
