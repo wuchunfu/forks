@@ -85,6 +85,26 @@
           </router-link>
         </li>
 
+        <!-- 趋势 -->
+        <li class="nav-item">
+          <router-link
+            to="/trending"
+            class="nav-link"
+            :class="{ 'nav-link-active': isActiveRoute('/trending') }"
+            :title="collapsed ? '趋势' : ''"
+          >
+            <div class="nav-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                <polyline points="17 6 23 6 23 12"/>
+              </svg>
+            </div>
+            <transition name="nav-text">
+              <span v-show="!collapsed" class="nav-text">趋势</span>
+            </transition>
+          </router-link>
+        </li>
+
         <!-- 任务 -->
         <li class="nav-item">
           <router-link
@@ -123,26 +143,6 @@
             </div>
             <transition name="nav-text">
               <span v-show="!collapsed" class="nav-text">活动</span>
-            </transition>
-          </router-link>
-        </li>
-
-        <!-- Trending -->
-        <li class="nav-item">
-          <router-link
-            to="/trending"
-            class="nav-link"
-            :class="{ 'nav-link-active': isActiveRoute('/trending') }"
-            :title="collapsed ? 'Trending' : ''"
-          >
-            <div class="nav-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
-                <polyline points="17 6 23 6 23 12"/>
-              </svg>
-            </div>
-            <transition name="nav-text">
-              <span v-show="!collapsed" class="nav-text">Trending</span>
             </transition>
           </router-link>
         </li>

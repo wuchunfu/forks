@@ -1,7 +1,7 @@
 <template>
   <div class="trending-view">
     <div class="page-header">
-      <h1 class="page-title">GitHub Trending</h1>
+      <h1 class="page-title">GitHub 趋势</h1>
       <p class="page-description">
         发现 GitHub 上最受欢迎的开源项目
         <span v-if="isHistoryMode" class="history-badge">历史数据 · {{ selectedDate }}</span>

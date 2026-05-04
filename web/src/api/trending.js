@@ -23,3 +23,26 @@ export function getTrendingDates(params = {}) {
     params
   })
 }
+
+export function getSyncConfig() {
+  return request({
+    url: '/api/trending/sync-config',
+    method: 'get'
+  })
+}
+
+export function updateSyncConfig(data) {
+  return request({
+    url: '/api/trending/sync-config',
+    method: 'post',
+    data
+  })
+}
+
+export function syncNow() {
+  return request({
+    url: '/api/trending/sync-now',
+    method: 'post',
+    timeout: 10000
+  })
+}

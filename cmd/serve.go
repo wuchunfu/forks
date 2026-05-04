@@ -383,6 +383,9 @@ func setupRoutes(r *gin.Engine) {
 		api.GET("/trending/dates", getTrendingDates)
 		api.GET("/trending", getTrending)
 		api.GET("/trending/languages", getTrendingLanguages)
+		api.GET("/trending/sync-config", getTrendingSyncConfig)
+		api.POST("/trending/sync-config", updateTrendingSyncConfig)
+		api.POST("/trending/sync-now", syncTrendingNow)
 
 		// 代码查看接口
 		api.GET("/repos/:id/files", getRepoFiles)
@@ -570,6 +573,9 @@ var serveCmd = &cobra.Command{
 		}
 		fmt.Printf("按 Ctrl+C 停止服务\n\n")
 
+		// 启动 Trending 同步调度器
+		utils.StartSyncScheduler()
+
 		// 启动服务器
 		if err := r.Run(address + ":" + strconv.Itoa(port)); err != nil {
 			fmt.Printf("启动服务器失败: %v\n", err)
@@ -736,5 +742,53 @@ func getTrendingDates(c *gin.Context) {
 		"code":    0,
 		"message": "success",
 		"data":    dates,
+	})
+}
+
+// getTrendingSyncConfig 获取同步配置
+func getTrendingSyncConfig(c *gin.Context) {
+	cfg, err := utils.LoadSyncConfig()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+		"data":    cfg,
+	})
+}
+
+// updateTrendingSyncConfig 更新同步配置
+func updateTrendingSyncConfig(c *gin.Context) {
+	var cfg utils.TrendingSyncConfig
+	if err := c.ShouldBindJSON(&cfg); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		return
+	}
+	if err := utils.SaveSyncConfig(&cfg); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+	})
+}
+
+// syncTrendingNow 立即执行同步
+func syncTrendingNow(c *gin.Context) {
+	if utils.IsSyncRunning() {
+		c.JSON(http.StatusConflict, gin.H{"code": 409, "message": "同步正在执行中"})
+		return
+	}
+	go func() {
+		if err := utils.RunSyncTasks(); err != nil {
+			log.Printf("[Trending] 手动同步失败: %v", err)
+		}
+	}()
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "同步已启动",
 	})
 }
