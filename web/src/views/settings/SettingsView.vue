@@ -300,7 +300,7 @@
                   clearable
                   filterable
                   size="small"
-                  style="width: 160px"
+                  style="width: 180px"
                 />
                 <n-select
                   v-model:value="newTask.spoken_language_code"
@@ -309,7 +309,7 @@
                   clearable
                   filterable
                   size="small"
-                  style="width: 140px"
+                  style="width: 160px"
                 />
                 <n-select
                   v-model:value="newTask.since"
@@ -737,11 +737,11 @@ async function loadSyncLanguageOptions() {
     const data = res.data.data
     syncLanguageOptions.value = [
       { label: '全部语言', value: '' },
-      ...data.programming_languages.slice(0, 100).map(l => ({ label: l.name, value: l.slug }))
+      ...data.programming_languages.map(l => ({ label: l.name, value: l.slug }))
     ]
     syncSpokenOptions.value = [
       { label: '全部', value: '' },
-      ...data.spoken_languages.slice(0, 50).map(l => ({ label: l.name, value: l.code }))
+      ...data.spoken_languages.map(l => ({ label: `${l.name} (${l.code})`, value: l.code }))
     ]
   } catch (e) {
     console.error('加载语言选项失败:', e)
