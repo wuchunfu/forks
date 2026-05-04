@@ -446,9 +446,13 @@ func setupRoutes(r *gin.Engine) {
 
 	// MCP 路由 — Streamable HTTP，复用 Bearer Token 认证
 	mcpServer := utils.SetupMCPServer()
+	crossOrigin := http.NewCrossOriginProtection()
+	crossOrigin.AddInsecureBypassPattern("/")
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(req *http.Request) *mcp.Server {
 		return mcpServer
-	}, nil)
+	}, &mcp.StreamableHTTPOptions{
+		CrossOriginProtection: crossOrigin,
+	})
 	mcpGroup := r.Group("/mcp")
 	mcpGroup.Use(func(c *gin.Context) {
 		if token == "" {
@@ -464,6 +468,7 @@ func setupRoutes(r *gin.Engine) {
 		c.Next()
 	})
 	mcpGroup.Any("", gin.WrapF(mcpHandler.ServeHTTP))
+	mcpGroup.Any("/*path", gin.WrapF(mcpHandler.ServeHTTP))
 
 	// Git Smart HTTP 路由 — 允许从本服务克隆已缓存的仓库
 	r.Any("/git/*path", gitHTTPHandler)
