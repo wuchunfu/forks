@@ -1,11 +1,5 @@
 <template>
   <div class="settings-view">
-    <!-- 页面标题 -->
-    <div class="page-header">
-      <h1 class="page-title">系统设置</h1>
-      <p class="page-description">配置系统参数和偏好设置</p>
-    </div>
-
     <n-tabs v-model:value="activeTab" type="line" placement="left" animated tab-style="min-width: 160px" class="settings-tabs">
       <!-- 代理设置 -->
       <n-tab-pane name="proxy" tab="代理">
@@ -916,9 +910,7 @@ watch(activeTab, (val) => {
 .settings-view {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
   animation: fadeIn 0.3s ease-out;
-  height: calc(100vh - var(--navbar-height) - var(--space-6) * 2);
 }
 
 @keyframes fadeIn {
@@ -955,6 +947,8 @@ watch(activeTab, (val) => {
 
 .settings-panel {
   padding: var(--space-6);
+  max-height: calc(100vh - var(--navbar-height) - var(--space-6) * 2);
+  overflow-y: auto;
 }
 
 .panel-header {
@@ -1472,29 +1466,8 @@ watch(activeTab, (val) => {
 }
 
 /* ============================================
-   TABS - 左侧 tab 导航列撑满高度
+   TABS
    ============================================ */
-
-.settings-tabs {
-  flex: 1;
-  min-height: 0;
-}
-
-.settings-tabs :deep(.n-tabs-nav) {
-  height: 100%;
-}
-
-.settings-tabs :deep(.n-tabs-nav-scroll-wrapper) {
-  height: 100%;
-}
-
-.settings-tabs :deep(.n-tabs-tab-wrapper) {
-  height: 100%;
-}
-
-.settings-tabs :deep(.n-tabs-tabs-wrapper) {
-  height: 100%;
-}
 
 /* Trending 同步 */
 .sync-tasks-list {
