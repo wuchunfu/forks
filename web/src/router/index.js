@@ -49,6 +49,12 @@ const router = createRouter({
           meta: { title: '活动记录', breadcrumb: [{ label: '活动记录' }] }
         },
         {
+          path: 'trending',
+          name: 'trending',
+          component: () => import('@/views/trending/TrendingView.vue'),
+          meta: { title: 'GitHub Trending', breadcrumb: [{ label: 'GitHub Trending' }] }
+        },
+        {
           path: ':pathMatch(.*)*',
           name: 'DashboardNotFound',
           component: () => import('@/views/NotFoundView.vue'),

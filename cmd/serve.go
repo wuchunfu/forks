@@ -379,6 +379,10 @@ func setupRoutes(r *gin.Engine) {
 		api.GET("/info", getSystemInfo)
 		api.GET("/version", getVersion)
 
+		// Trending 接口
+		api.GET("/trending", getTrending)
+		api.GET("/trending/languages", getTrendingLanguages)
+
 		// 代码查看接口
 		api.GET("/repos/:id/files", getRepoFiles)
 
@@ -666,4 +670,46 @@ func init() {
 	serveCmd.Flags().StringVar(&localProxy, "local-proxy", "", "本地代理端口 (例如: 1080, 7890, 8080)")
 	serveCmd.Flags().StringVar(&proxyType, "proxy-type", "http", "代理类型 (http, socks5) 默认: http")
 	serveCmd.Flags().StringVar(&proxyPreset, "proxy-preset", "", "代理预设 (shadowsocks, v2ray, clash, surge)")
+}
+
+// getTrending 获取 GitHub Trending 数据
+func getTrending(c *gin.Context) {
+	language := c.Query("language")
+	since := c.DefaultQuery("since", "daily")
+	spokenLanguageCode := c.Query("spoken_language_code")
+
+	if since != "daily" && since != "weekly" && since != "monthly" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的 since 参数"})
+		return
+	}
+
+	repos, err := utils.FetchTrendingData(language, since, spokenLanguageCode)
+	if err != nil {
+		log.Printf("获取 GitHub Trending 失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+		"data": gin.H{
+			"count": len(repos),
+			"items": repos,
+		},
+	})
+}
+
+// getTrendingLanguages 获取语言映射
+func getTrendingLanguages(c *gin.Context) {
+	mappings, err := utils.GetLanguageMappings()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+		"data":    mappings,
+	})
 }
