@@ -7,8 +7,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-VERSION_FILE = Path(__file__).parent / "VERSION"
-MSG_FILE = Path(__file__).parent / "msg.txt"
+ROOT = Path(__file__).parent.parent
+VERSION_FILE = ROOT / "VERSION"
+MSG_FILE = ROOT / "msg.txt"
 
 
 def read_version() -> str:
@@ -35,7 +36,8 @@ def bump_version(current: str) -> str:
 
 def run_git(*args: str, check: bool = True) -> subprocess.CompletedProcess:
     result = subprocess.run(
-        ["git"] + list(args), capture_output=True, text=True, check=False
+        ["git"] + list(args), capture_output=True, text=True, check=False,
+        cwd=str(ROOT)
     )
     if check and result.returncode != 0:
         print(f"git {' '.join(args)} 失败:\n{result.stderr}")

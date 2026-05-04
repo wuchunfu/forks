@@ -29,6 +29,10 @@ def main():
     image = f"{args.name}:{args.tag}"
     output = args.output or f"{args.name}_{args.tag}.tar"
 
+    # 项目根目录
+    root = os.path.dirname(os.path.dirname(__file__))
+    os.chdir(root)
+
     # 0. 检查前端构建产物
     if not os.path.isdir("web/dist") or not os.listdir("web/dist"):
         print("错误: web/dist 目录不存在或为空，请先构建前端:")
