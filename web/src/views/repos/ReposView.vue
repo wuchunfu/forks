@@ -182,6 +182,7 @@
               {{ repo.repo }}
             </div>
             <div class="repo-author">{{ repo.author }}</div>
+            <div v-if="repo.description" class="repo-desc-grid">{{ repo.description }}</div>
             <div class="repo-meta">
               <span v-if="repo.languages" class="repo-language">
                 {{ getFirstLanguage(repo.languages) }}
@@ -227,6 +228,7 @@
 
           <div class="repo-list-info">
             <div class="repo-list-name">{{ repo.repo }}</div>
+            <div v-if="repo.description" class="repo-list-desc">{{ repo.description }}</div>
             <div class="repo-list-meta">
               <span>{{ repo.author }}</span>
               <span v-if="repo.languages">· {{ getFirstLanguage(repo.languages) }}</span>
@@ -1150,6 +1152,17 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
   margin-bottom: var(--space-1);
 }
 
+.repo-desc-grid {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: var(--space-1);
+}
+
 .repo-meta {
   display: flex;
   gap: var(--space-2);
@@ -1358,6 +1371,16 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
   color: var(--color-text-primary);
+  margin-bottom: var(--space-0_5);
+}
+
+.repo-list-desc {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   margin-bottom: var(--space-0_5);
 }
 

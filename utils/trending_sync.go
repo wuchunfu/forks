@@ -32,7 +32,7 @@ var (
 
 func syncConfigFilePath() string {
 	if syncConfigPath == "" {
-		syncConfigPath = filepath.Join(GetTrendingDir(), "sync_config.json")
+		syncConfigPath = filepath.Join(ConfigInstance.GetAppConfigDir(), "sync_config.json")
 	}
 	return syncConfigPath
 }
