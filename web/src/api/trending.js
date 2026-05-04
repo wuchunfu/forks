@@ -15,3 +15,11 @@ export function getTrendingLanguages() {
     method: 'get'
   })
 }
+
+export function getTrendingDates(params = {}) {
+  return request({
+    url: '/api/trending/dates',
+    method: 'get',
+    params
+  })
+}

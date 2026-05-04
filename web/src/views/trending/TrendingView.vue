@@ -2,12 +2,24 @@
   <div class="trending-view">
     <div class="page-header">
       <h1 class="page-title">GitHub Trending</h1>
-      <p class="page-description">发现 GitHub 上最受欢迎的开源项目</p>
+      <p class="page-description">
+        发现 GitHub 上最受欢迎的开源项目
+        <span v-if="isHistoryMode" class="history-badge">历史数据 · {{ selectedDate }}</span>
+      </p>
     </div>
 
     <!-- 筛选栏 -->
     <div class="filter-bar">
       <div class="filter-left">
+        <n-date-picker
+          v-model:value="datePickerValue"
+          type="date"
+          size="small"
+          clearable
+          :placeholder="'选择日期'"
+          style="width: 150px"
+          :is-date-disabled="disableFutureDates"
+        />
         <n-select
           v-model:value="selectedLanguage"
           :options="programmingLanguageOptions"
@@ -34,7 +46,12 @@
         />
       </div>
       <div class="filter-right">
-        <n-button size="small" @click="loadTrending" :loading="loading">
+        <n-button
+          v-if="!isHistoryMode"
+          size="small"
+          @click="handleRefresh"
+          :loading="loading"
+        >
           <template #icon>
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="23 4 23 10 17 10"/>
@@ -65,12 +82,12 @@
         </svg>
       </div>
       <p class="error-text">{{ error }}</p>
-      <n-button size="small" @click="loadTrending">重试</n-button>
+      <n-button size="small" @click="loadTrending">{{ isHistoryMode ? '返回今天' : '重试' }}</n-button>
     </div>
 
     <!-- 空状态 -->
     <div v-else-if="trendingRepos.length === 0" class="trending-empty">
-      <p>暂无趋势数据</p>
+      <p>{{ isHistoryMode ? '该日期没有历史数据' : '暂无趋势数据' }}</p>
     </div>
 
     <!-- 项目列表 -->
@@ -138,6 +155,7 @@ import { addRepo } from '@/api/repos'
 const selectedLanguage = ref(null)
 const selectedSpokenLanguage = ref(null)
 const selectedSince = ref('daily')
+const datePickerValue = ref(null) // null = today
 
 const programmingLanguageOptions = ref([])
 const spokenLanguageOptions = ref([])
@@ -151,10 +169,28 @@ const trendingRepos = ref([])
 const loading = ref(false)
 const error = ref(null)
 
+const selectedDate = computed(() => {
+  if (!datePickerValue.value) return ''
+  const d = new Date(datePickerValue.value)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+})
+
+const isHistoryMode = computed(() => {
+  if (!datePickerValue.value) return false
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const selected = new Date(datePickerValue.value)
+  return selected < today
+})
+
 const sinceLabel = computed(() => {
   const map = { daily: 'today', weekly: 'this week', monthly: 'this month' }
   return map[selectedSince.value] || 'today'
 })
+
+function disableFutureDates(ts) {
+  return ts > Date.now()
+}
 
 async function loadLanguages() {
   try {
@@ -173,7 +209,7 @@ async function loadLanguages() {
   }
 }
 
-async function loadTrending() {
+async function loadTrending(forceRefresh = false) {
   loading.value = true
   error.value = null
   try {
@@ -182,6 +218,8 @@ async function loadTrending() {
     }
     if (selectedLanguage.value) params.language = selectedLanguage.value
     if (selectedSpokenLanguage.value) params.spoken_language_code = selectedSpokenLanguage.value
+    if (selectedDate.value) params.date = selectedDate.value
+    if (forceRefresh) params.refresh = 'true'
 
     const res = await getTrending(params)
     trendingRepos.value = (res.data.data.items || []).map(r => ({
@@ -194,6 +232,10 @@ async function loadTrending() {
   } finally {
     loading.value = false
   }
+}
+
+function handleRefresh() {
+  loadTrending(true)
 }
 
 async function handleAddRepo(repo) {
@@ -219,6 +261,10 @@ watch([selectedLanguage, selectedSpokenLanguage, selectedSince], () => {
   loadTrending()
 })
 
+watch(datePickerValue, () => {
+  loadTrending()
+})
+
 onMounted(() => {
   loadLanguages()
   loadTrending()
@@ -228,7 +274,6 @@ onMounted(() => {
 <style scoped>
 .trending-view {
   padding: var(--space-6);
-  max-width: 100%;
 }
 
 .page-header {
@@ -246,6 +291,20 @@ onMounted(() => {
   font-size: var(--text-sm);
   color: var(--color-text-tertiary);
   margin-top: var(--space-1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.history-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-warning-50, #fff8e1);
+  color: var(--color-warning-600, #e65100);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
 }
 
 .filter-bar {
@@ -439,7 +498,8 @@ onMounted(() => {
     width: 100%;
   }
 
-  .filter-left :deep(.n-select) {
+  .filter-left :deep(.n-select),
+  .filter-left :deep(.n-date-picker) {
     flex: 1;
     min-width: 0;
   }

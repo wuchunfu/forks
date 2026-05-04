@@ -380,6 +380,7 @@ func setupRoutes(r *gin.Engine) {
 		api.GET("/version", getVersion)
 
 		// Trending 接口
+		api.GET("/trending/dates", getTrendingDates)
 		api.GET("/trending", getTrending)
 		api.GET("/trending/languages", getTrendingLanguages)
 
@@ -672,18 +673,20 @@ func init() {
 	serveCmd.Flags().StringVar(&proxyPreset, "proxy-preset", "", "代理预设 (shadowsocks, v2ray, clash, surge)")
 }
 
-// getTrending 获取 GitHub Trending 数据
+// getTrending 获取 GitHub Trending 数据（带存储）
 func getTrending(c *gin.Context) {
 	language := c.Query("language")
 	since := c.DefaultQuery("since", "daily")
 	spokenLanguageCode := c.Query("spoken_language_code")
+	date := c.Query("date")
+	refresh := c.Query("refresh") == "true"
 
 	if since != "daily" && since != "weekly" && since != "monthly" {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的 since 参数"})
 		return
 	}
 
-	repos, err := utils.FetchTrendingData(language, since, spokenLanguageCode)
+	repos, err := utils.GetTrending(language, since, spokenLanguageCode, date, refresh)
 	if err != nil {
 		log.Printf("获取 GitHub Trending 失败: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
@@ -711,5 +714,27 @@ func getTrendingLanguages(c *gin.Context) {
 		"code":    0,
 		"message": "success",
 		"data":    mappings,
+	})
+}
+
+// getTrendingDates 查询某月有数据的日期列表
+func getTrendingDates(c *gin.Context) {
+	year, _ := strconv.Atoi(c.DefaultQuery("year", strconv.Itoa(time.Now().Year())))
+	month, _ := strconv.Atoi(c.DefaultQuery("month", strconv.Itoa(int(time.Now().Month()))))
+
+	if year < 2020 || year > 2100 || month < 1 || month > 12 {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的年月参数"})
+		return
+	}
+
+	dates, err := utils.ListTrendingDates(year, month)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+		"data":    dates,
 	})
 }
