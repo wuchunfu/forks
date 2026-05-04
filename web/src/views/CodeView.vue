@@ -432,7 +432,12 @@
               </div>
               <!-- 代码编辑器视图 -->
               <div v-else class="code-editor">
-                <div class="codemirror-container" ref="codeContainer"></div>
+                <div class="codemirror-container" ref="codeContainer" @contextmenu.prevent="onEditorContextMenu"></div>
+              </div>
+              <!-- 自定义右键菜单 -->
+              <div v-if="contextMenu.show" class="editor-context-menu" :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }">
+                <div v-if="contextMenu.hasSelection" class="ctx-item" @click="copySelection">复制</div>
+                <div class="ctx-item" @click="copyAll">复制全部</div>
               </div>
             </div>
           </div>
@@ -479,6 +484,7 @@ import {
   DocumentOutline,
   AlertCircleOutline
 } from '@vicons/ionicons5'
+import { copyToClipboard } from '@/utils/clipboard'
 import request from '@/utils/request'
 import { marked } from 'marked'
 
@@ -537,6 +543,9 @@ const currentFile = ref('')
 const currentFileName = ref('')
 const currentFileContent = ref('')
 const forceTextMode = ref(false) // 强制文本模式标志
+
+// 右键菜单
+const contextMenu = ref({ show: false, x: 0, y: 0, hasSelection: false })
 
 // 操作面板相关
 const showOperations = ref(false)
@@ -969,6 +978,50 @@ const createOrUpdateEditor = async () => {
       editorView.requestMeasure()
     }
   }, 100)
+}
+
+// 编辑器右键菜单
+const onEditorContextMenu = (e) => {
+  if (!editorView) return
+  const hasSelection = !editorView.state.selection.main.empty
+  contextMenu.value = {
+    show: true,
+    x: e.clientX,
+    y: e.clientY,
+    hasSelection
+  }
+}
+
+const copySelection = async () => {
+  if (!editorView) return
+  const { from, to } = editorView.state.selection.main
+  const text = editorView.state.sliceDoc(from, to)
+  try {
+    await copyToClipboard(text)
+    message.success('已复制')
+  } catch {
+    message.error('复制失败')
+  }
+  contextMenu.value.show = false
+}
+
+const copyAll = async () => {
+  if (!editorView) return
+  const text = editorView.state.doc.toString()
+  try {
+    await copyToClipboard(text)
+    message.success('已复制全部内容')
+  } catch {
+    message.error('复制失败')
+  }
+  contextMenu.value.show = false
+}
+
+// 点击其他区域关闭右键菜单
+const closeContextMenu = () => {
+  if (contextMenu.value.show) {
+    contextMenu.value.show = false
+  }
 }
 
 // 更新展开状态
@@ -1531,12 +1584,14 @@ onMounted(async () => {
   // 先加载仓库信息（获取 is_cloned 状态），再并行加载文件树和详细状态
   await loadRepoInfo()
   await Promise.all([loadFileTree(), checkRepoStatus()])
+  document.addEventListener('click', closeContextMenu)
 })
 
 onBeforeUnmount(() => {
   if (editorView) {
     editorView.destroy()
   }
+  document.removeEventListener('click', closeContextMenu)
 })
 </script>
 
@@ -1710,6 +1765,29 @@ onBeforeUnmount(() => {
 .codemirror-container {
   height: 100%;
   min-height: 400px;
+}
+
+.editor-context-menu {
+  position: fixed;
+  z-index: 9999;
+  background: var(--n-color-popover, #2a2a3e);
+  border: 1px solid var(--n-border-color, #3a3a5c);
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 120px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.editor-context-menu .ctx-item {
+  padding: 6px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--n-text-color, #e0e0e0);
+  transition: background 0.15s;
+}
+
+.editor-context-menu .ctx-item:hover {
+  background: var(--n-color-hover, rgba(255, 255, 255, 0.08));
 }
 
 /* CodeMirror 样式覆盖 */
