@@ -14,6 +14,92 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// MCPToolInfo MCP 工具元信息（用于 API 返回）
+type MCPToolInfo struct {
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	Params      []MCPToolParamInfo `json:"params"`
+}
+
+// MCPToolParamInfo 工具参数信息
+type MCPToolParamInfo struct {
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Required    bool   `json:"required"`
+	Description string `json:"description"`
+}
+
+// GetMCPToolInfos 返回所有工具的元信息（供 API 使用）
+func GetMCPToolInfos() []MCPToolInfo {
+	return []MCPToolInfo{
+		{
+			Name:        "list_repos",
+			Description: "列出仓库，支持搜索和筛选。可按关键词、作者、克隆状态、平台来源筛选，支持分页。",
+			Params: []MCPToolParamInfo{
+				{Name: "search", Type: "string", Required: false, Description: "搜索关键词，匹配作者/仓库名/描述"},
+				{Name: "status", Type: "string", Required: false, Description: "克隆状态筛选：cloned 或 not-cloned"},
+				{Name: "author", Type: "string", Required: false, Description: "按作者筛选"},
+				{Name: "source", Type: "string", Required: false, Description: "平台来源：github 或 gitee"},
+				{Name: "page", Type: "number", Required: false, Description: "页码，默认1"},
+				{Name: "page_size", Type: "number", Required: false, Description: "每页条数，默认10，最大100"},
+			},
+		},
+		{
+			Name:        "add_repo",
+			Description: "通过 URL 添加仓库到收藏列表。支持 GitHub 和 Gitee 平台。",
+			Params: []MCPToolParamInfo{
+				{Name: "url", Type: "string", Required: true, Description: "仓库 URL，如 https://github.com/owner/repo"},
+			},
+		},
+		{
+			Name:        "get_repo",
+			Description: "根据 ID 获取单个仓库的详细信息。",
+			Params: []MCPToolParamInfo{
+				{Name: "id", Type: "string", Required: true, Description: "仓库 ID"},
+			},
+		},
+		{
+			Name:        "update_repo_info",
+			Description: "从远程平台获取并更新仓库的最新信息（stars、forks、描述等）。",
+			Params: []MCPToolParamInfo{
+				{Name: "id", Type: "string", Required: true, Description: "仓库 ID"},
+			},
+		},
+		{
+			Name:        "get_stats",
+			Description: "获取仓库统计信息，包括总数、已克隆数、未克隆数、作者数。",
+			Params:      nil,
+		},
+		{
+			Name:        "list_repo_files",
+			Description: "获取仓库的文件目录树结构。仅对已克隆的仓库有效。可通过 depth 控制遍历深度，sub_path 指定子目录。",
+			Params: []MCPToolParamInfo{
+				{Name: "id", Type: "string", Required: true, Description: "仓库 ID"},
+				{Name: "depth", Type: "number", Required: false, Description: "目录遍历深度，默认3，最大10"},
+				{Name: "sub_path", Type: "string", Required: false, Description: "子目录路径，为空表示仓库根目录"},
+			},
+		},
+		{
+			Name:        "read_repo_file",
+			Description: "读取仓库中指定文件的文本内容。仅支持文本文件，二进制文件会返回错误。",
+			Params: []MCPToolParamInfo{
+				{Name: "id", Type: "string", Required: true, Description: "仓库 ID"},
+				{Name: "path", Type: "string", Required: true, Description: "文件在仓库中的相对路径"},
+			},
+		},
+		{
+			Name:        "get_trending",
+			Description: "获取 GitHub Trending 趋势仓库列表。支持按编程语言、时间范围（daily/weekly/monthly）、自然语言筛选。返回仓库名、描述、Stars、Forks 等信息，并标注哪些仓库已在 Forks 中。",
+			Params: []MCPToolParamInfo{
+				{Name: "language", Type: "string", Required: false, Description: "编程语言，如 python、go、rust。为空表示全部语言"},
+				{Name: "since", Type: "string", Required: false, Description: "时间范围：daily（每天）、weekly（每周）、monthly（每月），默认 daily"},
+				{Name: "spoken_language", Type: "string", Required: false, Description: "自然语言代码，如 zh（中文）、en（英文）。为空表示全部"},
+				{Name: "date", Type: "string", Required: false, Description: "指定日期，格式 2026-05-04。为空表示今天"},
+			},
+		},
+	}
+}
+
 // SetupMCPServer 创建并配置 MCP Server，注册所有工具
 func SetupMCPServer() *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
@@ -21,47 +107,45 @@ func SetupMCPServer() *mcp.Server {
 		Version: Version,
 	}, nil)
 
-	// list_repos — 列出仓库（支持搜索/筛选）
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_repos",
 		Description: "列出仓库，支持搜索和筛选。可按关键词、作者、克隆状态、平台来源筛选，支持分页。",
 	}, listReposTool)
 
-	// add_repo — 添加仓库
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "add_repo",
 		Description: "通过 URL 添加仓库到收藏列表。支持 GitHub 和 Gitee 平台。",
 	}, addRepoTool)
 
-	// get_repo — 获取单个仓库详情
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_repo",
 		Description: "根据 ID 获取单个仓库的详细信息。",
 	}, getRepoTool)
 
-	// update_repo_info — 更新仓库远程信息
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "update_repo_info",
 		Description: "从远程平台获取并更新仓库的最新信息（stars、forks、描述等）。",
 	}, updateRepoInfoTool)
 
-	// get_stats — 获取统计信息
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_stats",
 		Description: "获取仓库统计信息，包括总数、已克隆数、未克隆数、作者数。",
 	}, getStatsTool)
 
-	// list_repo_files — 获取仓库文件目录结构
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_repo_files",
 		Description: "获取仓库的文件目录树结构。仅对已克隆的仓库有效。可通过 depth 控制遍历深度，sub_path 指定子目录。",
 	}, listRepoFilesTool)
 
-	// read_repo_file — 读取仓库中的文件内容
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "read_repo_file",
 		Description: "读取仓库中指定文件的文本内容。仅支持文本文件，二进制文件会返回错误。",
 	}, readRepoFileTool)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_trending",
+		Description: "获取 GitHub Trending 趋势仓库列表。支持按编程语言、时间范围（daily/weekly/monthly）、自然语言筛选。返回仓库名、描述、Stars、Forks 等信息。",
+	}, getTrendingTool)
 
 	return server
 }
@@ -133,6 +217,25 @@ type FileEntry struct {
 type ReadRepoFileInput struct {
 	ID   string `json:"id"   jsonschema:"仓库 ID"`
 	Path string `json:"path" jsonschema:"文件在仓库中的相对路径"`
+}
+
+type GetTrendingInput struct {
+	Language         string `json:"language,omitempty"          jsonschema:"编程语言，如 python、go、rust。为空表示全部语言"`
+	Since            string `json:"since,omitempty"             jsonschema:"时间范围：daily（每天）、weekly（每周）、monthly（每月），默认 daily"`
+	SpokenLanguage   string `json:"spoken_language,omitempty"   jsonschema:"自然语言代码，如 zh（中文）、en（英文）。为空表示全部"`
+	Date             string `json:"date,omitempty"              jsonschema:"指定日期，格式 2026-05-04。为空表示今天"`
+}
+
+type TrendingRepoOutput struct {
+	Author             string `json:"author"`
+	Repo               string `json:"repo"`
+	URL                string `json:"url"`
+	Description        string `json:"description"`
+	Language           string `json:"language"`
+	Stars              int    `json:"stars"`
+	Forks              int    `json:"forks"`
+	CurrentPeriodStars int    `json:"current_period_stars"`
+	Exists             bool   `json:"exists_in_forks"`
 }
 
 // ===================== 工具实现 =====================
@@ -372,6 +475,72 @@ func getStatsTool(ctx context.Context, req *mcp.CallToolRequest, input struct{})
 		NotClonedCount: notCloned,
 		AuthorCount:    authors,
 	}, nil
+}
+
+func getTrendingTool(ctx context.Context, req *mcp.CallToolRequest, input GetTrendingInput) (*mcp.CallToolResult, any, error) {
+	since := input.Since
+	if since == "" {
+		since = "daily"
+	}
+
+	repos, err := GetTrending(input.Language, since, input.SpokenLanguage, input.Date, false)
+	if err != nil {
+		return errorResult("获取趋势数据失败: " + err.Error()), nil, nil
+	}
+
+	// 批量查询哪些已在 forks 中
+	urls := make([]string, 0, len(repos))
+	for _, r := range repos {
+		urls = append(urls, r.URL)
+	}
+	existSet := batchCheckRepoExists(urls)
+
+	result := make([]TrendingRepoOutput, 0, len(repos))
+	for _, r := range repos {
+		result = append(result, TrendingRepoOutput{
+			Author:             r.Author,
+			Repo:               r.Repo,
+			URL:                r.URL,
+			Description:        r.Description,
+			Language:           r.Language,
+			Stars:              r.Stars,
+			Forks:              r.Forks,
+			CurrentPeriodStars: r.CurrentPeriodStars,
+			Exists:             existSet[r.URL],
+		})
+	}
+
+	return nil, result, nil
+}
+
+// batchCheckRepoExists 批量检查 URL 是否已在 repos 表中
+func batchCheckRepoExists(urls []string) map[string]bool {
+	m := make(map[string]bool, len(urls))
+	if len(urls) == 0 {
+		return m
+	}
+
+	placeholders := make([]string, 0, len(urls))
+	args := make([]interface{}, 0, len(urls))
+	for _, u := range urls {
+		placeholders = append(placeholders, "?")
+		args = append(args, u)
+	}
+
+	query := "SELECT url FROM repos WHERE url IN (" + strings.Join(placeholders, ",") + ")"
+	rows, err := common.Db.Query(query, args...)
+	if err != nil {
+		return m
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var u string
+		if rows.Scan(&u) == nil {
+			m[u] = true
+		}
+	}
+	return m
 }
 
 func listRepoFilesTool(ctx context.Context, req *mcp.CallToolRequest, input ListRepoFilesInput) (*mcp.CallToolResult, any, error) {

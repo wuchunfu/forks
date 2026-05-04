@@ -46,3 +46,10 @@ export function syncNow() {
     timeout: 10000
   })
 }
+
+export function getMCPTools() {
+  return request({
+    url: '/api/mcp/tools',
+    method: 'get'
+  })
+}

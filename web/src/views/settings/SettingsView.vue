@@ -465,7 +465,7 @@ import {
   GitMergeOutline
 } from '@vicons/ionicons5'
 import { getProxyConfig, updateProxyConfig, getTokenInfo, updateToken, getVersion } from '@/api/repos'
-import { getSyncConfig, updateSyncConfig, syncNow, getTrendingLanguages } from '@/api/trending'
+import { getSyncConfig, updateSyncConfig, syncNow, getTrendingLanguages, getMCPTools } from '@/api/trending'
 import { copyToClipboard } from '@/utils/clipboard'
 import { EditorView, lineNumbers, highlightActiveLineGutter } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
@@ -788,6 +788,7 @@ onMounted(() => {
   loadVersion()
   loadSyncConfig()
   loadSyncLanguageOptions()
+  loadMCPTools()
 })
 
 // ==================== MCP 工具 ====================
@@ -796,72 +797,17 @@ const mcpSubTab = ref('tools')
 const mcpCodeRef = ref(null)
 let mcpEditorView = null
 
-const mcpTools = reactive([
-  {
-    name: 'list_repos',
-    description: '列出仓库，支持搜索和筛选。可按关键词、作者、克隆状态、平台来源筛选，支持分页。',
-    _expanded: false,
-    params: [
-      { name: 'search', type: 'string', required: false, description: '搜索关键词，匹配作者/仓库名/描述' },
-      { name: 'status', type: 'string', required: false, description: '克隆状态筛选：cloned 或 not-cloned' },
-      { name: 'author', type: 'string', required: false, description: '按作者筛选' },
-      { name: 'source', type: 'string', required: false, description: '平台来源：github 或 gitee' },
-      { name: 'page', type: 'number', required: false, description: '页码，默认1' },
-      { name: 'page_size', type: 'number', required: false, description: '每页条数，默认10，最大100' }
-    ]
-  },
-  {
-    name: 'add_repo',
-    description: '通过 URL 添加仓库到收藏列表。支持 GitHub 和 Gitee 平台。',
-    tags: [],
-    _expanded: false,
-    params: [
-      { name: 'url', type: 'string', required: true, description: '仓库 URL，如 https://github.com/owner/repo' }
-    ]
-  },
-  {
-    name: 'get_repo',
-    description: '根据 ID 获取单个仓库的详细信息。',
-    _expanded: false,
-    params: [
-      { name: 'id', type: 'string', required: true, description: '仓库 ID' }
-    ]
-  },
-  {
-    name: 'update_repo_info',
-    description: '从远程平台获取并更新仓库的最新信息（stars、forks、描述等）。',
-    tags: [],
-    _expanded: false,
-    params: [
-      { name: 'id', type: 'string', required: true, description: '仓库 ID' }
-    ]
-  },
-  {
-    name: 'get_stats',
-    description: '获取仓库统计信息，包括总数、已克隆数、未克隆数、作者数。',
-    _expanded: false,
-    params: []
-  },
-  {
-    name: 'list_repo_files',
-    description: '获取仓库的文件目录树结构。仅对已克隆的仓库有效。',
-    _expanded: false,
-    params: [
-      { name: 'id', type: 'string', required: true, description: '仓库 ID' },
-      { name: 'depth', type: 'number', required: false, description: '目录遍历深度，默认3，最大10' },
-      { name: 'sub_path', type: 'string', required: false, description: '子目录路径，为空表示仓库根目录' }
-    ]
-  },
-  {
-    name: 'read_repo_file',
-    description: '读取仓库中指定文件的文本内容。仅支持文本文件，二进制文件会返回错误。',
-    _expanded: false,
-    params: [
-      { name: 'id', type: 'string', required: true, description: '仓库 ID' },
-      { name: 'path', type: 'string', required: true, description: '文件在仓库中的相对路径' }
-    ]
+const mcpTools = ref([])
+
+const loadMCPTools = async () => {
+  try {
+    const res = await getMCPTools()
+    const data = res.data?.data || []
+    mcpTools.value = data.map(t => ({ ...t, _expanded: false, params: t.params || [] }))
+  } catch (e) {
+    console.error('加载 MCP 工具列表失败:', e)
   }
-])
+}
 
 const mcpConfigDisplay = computed(() => {
   const hasToken = !!localStorage.getItem('token')

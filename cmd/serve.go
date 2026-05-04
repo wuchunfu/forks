@@ -379,6 +379,9 @@ func setupRoutes(r *gin.Engine) {
 		api.GET("/info", getSystemInfo)
 		api.GET("/version", getVersion)
 
+		// MCP 工具列表
+		api.GET("/mcp/tools", getMCPTools)
+
 		// Trending 接口
 		api.GET("/trending/dates", getTrendingDates)
 		api.GET("/trending", getTrending)
@@ -781,6 +784,14 @@ func getTrendingDates(c *gin.Context) {
 		"code":    0,
 		"message": "success",
 		"data":    dates,
+	})
+}
+
+// getMCPTools 返回 MCP 工具列表
+func getMCPTools(c *gin.Context) {
+	c.JSON(200, gin.H{
+		"code": 0,
+		"data": utils.GetMCPToolInfos(),
 	})
 }
 
