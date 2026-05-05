@@ -33,7 +33,7 @@
           >
             <component
               :is="Component"
-              :key="route.path + '-' + refreshKey"
+              :key="pageKey"
               :refresh-key="refreshKey"
               @add-repo="showAddRepoModal = true"
             />
@@ -87,6 +87,12 @@ import AddRepoModal from '@/components/AddRepoModal.vue'
 const message = useMessage()
 const reposStore = useReposStore()
 const route = useRoute()
+
+// 用顶层路径作 key，设置子路由切换不会重建整个页面
+const pageKey = computed(() => {
+  const topPath = '/' + (route.path.split('/')[1] || '')
+  return topPath + '-' + refreshKey.value
+})
 
 // 设置页、任务页等不显示悬浮按钮
 const showFloatingButton = computed(() => {
