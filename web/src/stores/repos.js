@@ -108,7 +108,6 @@ export const useReposStore = defineStore('repos', () => {
         total.value = responseData.data?.total || responseData.total || 0
         totalPages.value = responseData.data?.total_pages || responseData.total_pages || 0
         currentPage.value = responseData.data?.page || responseData.page || 1
-        pageSize.value = responseData.data?.page_size || responseData.page_size || 10
       } else {
         const errorMsg = responseData?.message || 'API返回错误'
         throw new Error(errorMsg)

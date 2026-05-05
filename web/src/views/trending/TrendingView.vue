@@ -92,7 +92,7 @@
 
     <!-- 项目列表 -->
     <div v-else class="trending-list">
-      <div v-for="repo in trendingRepos" :key="repo.url" class="trending-card">
+      <div v-for="repo in trendingRepos" :key="repo.url" class="trending-card" @contextmenu.prevent="handleContextMenu($event, repo)">
         <div class="card-header">
           <div class="card-title-row">
             <a :href="repo.url" target="_blank" rel="noopener" class="repo-name">
@@ -180,13 +180,36 @@
         </div>
       </div>
     </div>
+
+    <!-- 右键菜单 -->
+    <n-dropdown
+      :options="contextMenuOptions"
+      @select="handleContextMenuAction"
+      trigger="manual"
+      placement="bottom-start"
+      :x="contextMenuX"
+      :y="contextMenuY"
+      :show="showCtxMenu"
+      @update:show="showCtxMenu = $event"
+      @clickoutside="showCtxMenu = false"
+    />
+
+    <!-- 仓库详情抽屉 -->
+    <RepoDetailDrawer
+      :show="detailDrawer.show"
+      :repo="detailDrawer.repo"
+      @update:show="detailDrawer.show = $event"
+      @repo-updated="loadTrending()"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { NDropdown } from 'naive-ui'
 import { getTrending, getTrendingLanguages } from '@/api/trending'
-import { addRepo } from '@/api/repos'
+import { addRepo, getRepo, getRepos } from '@/api/repos'
+import RepoDetailDrawer from '@/components/RepoDetailDrawer.vue'
 
 const selectedLanguage = ref(null)
 const selectedSpokenLanguage = ref(null)
@@ -279,8 +302,13 @@ async function handleAddRepo(repo) {
   if (repo._added) return
   repo._adding = true
   try {
-    await addRepo({ url: repo.url })
+    const res = await addRepo({ url: repo.url })
     repo._added = true
+    repo._exists = true
+    const newId = res.data?.data?.repoId
+    if (newId) {
+      repo.repo_id = newId
+    }
   } catch (e) {
     // ignore
   } finally {
@@ -294,13 +322,100 @@ function formatNum(n) {
   return n.toLocaleString()
 }
 
-watch([selectedLanguage, selectedSpokenLanguage, selectedSince], () => {
-  loadTrending()
+// 右键菜单
+const showCtxMenu = ref(false)
+const contextMenuX = ref(0)
+const contextMenuY = ref(0)
+const contextMenuRepo = ref(null)
+
+function handleContextMenu(e, repo) {
+  e.preventDefault()
+  contextMenuX.value = e.clientX
+  contextMenuY.value = e.clientY
+  contextMenuRepo.value = repo
+  showCtxMenu.value = true
+}
+
+const contextMenuOptions = computed(() => {
+  const repo = contextMenuRepo.value
+  if (!repo) return []
+  const options = []
+  if (repo._exists || repo.repo_id || repo._added) {
+    options.push({ label: '查看详情', key: 'detail' })
+    options.push({ type: 'divider', key: 'd1' })
+  }
+  if (!(repo._exists || repo._added)) {
+    options.push({ label: '添加仓库', key: 'add' })
+  } else {
+    options.push({ label: '已添加', key: 'added', disabled: true })
+  }
+  options.push(
+    { label: '在 GitHub 打开', key: 'github' },
+    { label: '在 DeepWiki 打开', key: 'deepwiki' },
+    { label: '在 ZRead 打开', key: 'zread' }
+  )
+  return options
 })
 
-watch(datePickerValue, () => {
-  loadTrending()
-})
+function handleContextMenuAction(key) {
+  const repo = contextMenuRepo.value
+  showCtxMenu.value = false
+  contextMenuRepo.value = null
+  if (!repo) return
+  switch (key) {
+    case 'detail':
+      openRepoDetail(repo)
+      break
+    case 'add':
+      handleAddRepo(repo)
+      break
+    case 'github':
+      window.open(repo.url, '_blank')
+      break
+    case 'deepwiki':
+      window.open(`https://deepwiki.com/${repo.author}/${repo.repo}`, '_blank')
+      break
+    case 'zread':
+      window.open(`https://zread.ai/${repo.author}/${repo.repo}`, '_blank')
+      break
+  }
+}
+
+// 仓库详情抽屉
+const detailDrawer = reactive({ show: false, repo: null })
+
+async function openRepoDetail(repo) {
+  let repoId = repo?.repo_id
+  // repo_id 可能不存在（后端未返回或旧版本），通过 URL 搜索获取
+  if (!repoId) {
+    try {
+      const searchRes = await getRepos({ search: `${repo.author}/${repo.repo}`, page_size: 1 })
+      const searchData = searchRes.data
+      if (searchData?.code === 0) {
+        const list = searchData.data?.list || []
+        const found = list.find(r => r.url === repo.url || (r.author === repo.author && r.repo === repo.repo))
+        if (found) {
+          repoId = found.id
+          repo.repo_id = found.id
+          repo._exists = true
+        }
+      }
+    } catch {
+      // 搜索失败则忽略
+    }
+  }
+  if (!repoId) return
+  try {
+    const res = await getRepo(repoId)
+    const resp = res.data
+    if (resp && resp.code === 0 && resp.data) {
+      detailDrawer.repo = resp.data
+      detailDrawer.show = true
+    }
+  } catch (e) {
+    console.error('加载仓库详情失败:', e)
+  }
+}
 
 onMounted(() => {
   loadLanguages()
@@ -562,4 +677,5 @@ onMounted(() => {
     gap: var(--space-1);
   }
 }
+
 </style>

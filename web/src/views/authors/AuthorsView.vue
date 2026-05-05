@@ -124,7 +124,7 @@
           :page-count="totalPages"
           :page-size="pageSize"
           show-size-picker
-          :page-sizes="[20, 40, 60, 100]"
+          :page-sizes="[40, 60, 100, 200]"
           @update:page="handlePageChange"
           @update:page-size="handlePageSizeChange"
         />
@@ -189,7 +189,7 @@ const sortOrder = ref('desc')
 const showAddRepoModal = ref(false)
 const selectedSource = ref(null)
 const currentPage = ref(1)
-const pageSize = ref(20)
+const pageSize = ref(40)
 const total = ref(0)
 
 const sourceOptions = [

@@ -708,7 +708,11 @@ func getTrending(c *gin.Context) {
 	}
 
 	// 批量查询已存在的仓库 URL
-	existingURLs := make(map[string]bool)
+	type repoInfo struct {
+		Exists bool
+		ID     int
+	}
+	existingRepos := make(map[string]*repoInfo)
 	if len(repos) > 0 {
 		urls := make([]string, 0, len(repos))
 		for _, r := range repos {
@@ -720,13 +724,14 @@ func getTrending(c *gin.Context) {
 			placeholders = append(placeholders, "?")
 			args = append(args, u)
 		}
-		query := "SELECT url FROM repos WHERE url IN (" + strings.Join(placeholders, ",") + ")"
+		query := "SELECT id, url FROM repos WHERE url IN (" + strings.Join(placeholders, ",") + ")"
 		rows, err := common.Db.Query(query, args...)
 		if err == nil {
 			for rows.Next() {
+				var id int
 				var u string
-				if rows.Scan(&u) == nil {
-					existingURLs[u] = true
+				if rows.Scan(&id, &u) == nil {
+					existingRepos[u] = &repoInfo{Exists: true, ID: id}
 				}
 			}
 			rows.Close()
@@ -736,14 +741,19 @@ func getTrending(c *gin.Context) {
 	type TrendingRepoWithExists struct {
 		utils.TrendingRepo
 		Exists bool `json:"_exists"`
+		RepoID int  `json:"repo_id"`
 	}
 
 	items := make([]TrendingRepoWithExists, 0, len(repos))
 	for _, r := range repos {
-		items = append(items, TrendingRepoWithExists{
+		item := TrendingRepoWithExists{
 			TrendingRepo: r,
-			Exists:       existingURLs[r.URL],
-		})
+		}
+		if info, ok := existingRepos[r.URL]; ok {
+			item.Exists = info.Exists
+			item.RepoID = info.ID
+		}
+		items = append(items, item)
 	}
 
 	c.JSON(http.StatusOK, gin.H{

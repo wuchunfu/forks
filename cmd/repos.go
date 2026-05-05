@@ -19,7 +19,7 @@ import (
 func getRepos(c *gin.Context) {
 	// 获取分页参数
 	page := c.DefaultQuery("page", "1")
-	pageSize := c.DefaultQuery("page_size", "10")
+	pageSize := c.DefaultQuery("page_size", "20")
 	search := c.Query("search")
 	author := c.Query("author")
 	status := c.Query("status") // cloned, not-cloned
