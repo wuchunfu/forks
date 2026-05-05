@@ -403,7 +403,8 @@ onMounted(() => {
 
 .search-input input {
   width: 100%;
-  padding: var(--space-2_5) var(--space-10) var(--space-2_5) var(--space-10);
+  height: 28px;
+  padding: 0 var(--space-10) 0 var(--space-10);
   font-size: var(--text-sm);
   color: var(--color-text-primary);
   background-color: var(--color-bg-card);

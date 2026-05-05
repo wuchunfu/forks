@@ -519,10 +519,6 @@ const getRepoActions = (repo) => {
 
   actions.push(
     {
-      label: '打开文件夹',
-      key: 'open'
-    },
-    {
       type: 'divider',
       key: 'd2'
     },
@@ -593,9 +589,6 @@ const handleAction = async (key, repo) => {
         pullingProgress.value = ''
         message.error('拉取失败：' + error.message)
       }
-      break
-    case 'open':
-      message.info('打开文件夹功能开发中...')
       break
     case 'delete':
       await handleDelete(repo)
@@ -925,7 +918,8 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
 
 .search-input input {
   width: 100%;
-  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-9);
+  height: 28px;
+  padding: 0 var(--space-3) 0 var(--space-9);
   font-size: var(--text-sm);
   color: var(--color-text-primary);
   background-color: var(--color-bg-card);
@@ -962,7 +956,11 @@ watch(() => props.refreshKey, async (newVal, oldVal) => {
 }
 
 .toggle-btn {
-  padding: var(--space-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   background: none;
   border: none;
   cursor: pointer;
