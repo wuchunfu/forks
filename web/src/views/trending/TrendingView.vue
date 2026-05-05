@@ -198,18 +198,27 @@
     <RepoDetailDrawer
       :show="detailDrawer.show"
       :repo="detailDrawer.repo"
+      :update-loading="updateLoading"
       @update:show="detailDrawer.show = $event"
-      @repo-updated="loadTrending()"
+      @open-repo="handleOpenRepo"
+      @view-code="handleViewCode"
+      @update-info="handleUpdateInfo"
+      @delete-repo="handleDelete"
+      @toggle-valid="handleToggleValid"
     />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
-import { NDropdown } from 'naive-ui'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { NDropdown, useMessage } from 'naive-ui'
 import { getTrending, getTrendingLanguages } from '@/api/trending'
-import { addRepo, getRepo, getRepos } from '@/api/repos'
+import { addRepo, getRepo, toggleValid } from '@/api/repos'
 import RepoDetailDrawer from '@/components/RepoDetailDrawer.vue'
+
+const router = useRouter()
+const message = useMessage()
 
 const selectedLanguage = ref(null)
 const selectedSpokenLanguage = ref(null)
@@ -302,13 +311,10 @@ async function handleAddRepo(repo) {
   if (repo._added) return
   repo._adding = true
   try {
-    const res = await addRepo({ url: repo.url })
+    await addRepo({ url: repo.url })
     repo._added = true
-    repo._exists = true
-    const newId = res.data?.data?.repoId
-    if (newId) {
-      repo.repo_id = newId
-    }
+    // 刷新数据以获取后端返回的 _exists 和 repo_id
+    await loadTrending()
   } catch (e) {
     // ignore
   } finally {
@@ -340,7 +346,7 @@ const contextMenuOptions = computed(() => {
   const repo = contextMenuRepo.value
   if (!repo) return []
   const options = []
-  if (repo._exists || repo.repo_id || repo._added) {
+  if (repo._exists || repo.repo_id) {
     options.push({ label: '查看详情', key: 'detail' })
     options.push({ type: 'divider', key: 'd1' })
   }
@@ -385,28 +391,9 @@ function handleContextMenuAction(key) {
 const detailDrawer = reactive({ show: false, repo: null })
 
 async function openRepoDetail(repo) {
-  let repoId = repo?.repo_id
-  // repo_id 可能不存在（后端未返回或旧版本），通过 URL 搜索获取
-  if (!repoId) {
-    try {
-      const searchRes = await getRepos({ search: `${repo.author}/${repo.repo}`, page_size: 1 })
-      const searchData = searchRes.data
-      if (searchData?.code === 0) {
-        const list = searchData.data?.list || []
-        const found = list.find(r => r.url === repo.url || (r.author === repo.author && r.repo === repo.repo))
-        if (found) {
-          repoId = found.id
-          repo.repo_id = found.id
-          repo._exists = true
-        }
-      }
-    } catch {
-      // 搜索失败则忽略
-    }
-  }
-  if (!repoId) return
+  if (!repo?.repo_id) return
   try {
-    const res = await getRepo(repoId)
+    const res = await getRepo(repo.repo_id)
     const resp = res.data
     if (resp && resp.code === 0 && resp.data) {
       detailDrawer.repo = resp.data
@@ -414,6 +401,63 @@ async function openRepoDetail(repo) {
     }
   } catch (e) {
     console.error('加载仓库详情失败:', e)
+  }
+}
+
+const updateLoading = ref(false)
+
+function handleOpenRepo(url) {
+  window.open(url, '_blank')
+}
+
+function handleViewCode(repo) {
+  if (repo?.id) router.push(`/code/${repo.id}`)
+}
+
+async function handleUpdateInfo(repo) {
+  try {
+    updateLoading.value = true
+    const { updateRepoInfo } = await import('@/api/repos')
+    const response = await updateRepoInfo(repo.id)
+    const apiData = response.data
+    if (apiData && apiData.code === 0) {
+      message.success('更新成功')
+      detailDrawer.repo = { ...detailDrawer.repo, ...apiData.data }
+    } else {
+      message.error(apiData?.message || '更新失败')
+    }
+  } catch (e) {
+    message.error('更新失败：' + e.message)
+  } finally {
+    updateLoading.value = false
+  }
+}
+
+async function handleDelete(repo) {
+  try {
+    const { deleteRepo } = await import('@/api/repos')
+    await deleteRepo(repo.id)
+    message.success('仓库删除成功')
+    detailDrawer.show = false
+    loadTrending()
+  } catch (e) {
+    message.error('删除失败：' + e.message)
+  }
+}
+
+async function handleToggleValid(repo) {
+  try {
+    const res = await toggleValid(repo.id)
+    const apiData = res.data
+    if (apiData && apiData.code === 0) {
+      message.success(apiData.message)
+      // 刷新详情
+      await openRepoDetail({ repo_id: repo.id })
+    } else {
+      message.error(apiData?.message || '操作失败')
+    }
+  } catch (e) {
+    message.error('操作失败：' + e.message)
   }
 }
 
