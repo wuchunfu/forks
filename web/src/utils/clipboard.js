@@ -7,20 +7,25 @@ export async function copyToClipboard(text) {
     await navigator.clipboard.writeText(text)
     return
   }
-  // fallback: 创建临时 textarea 复制
+  // fallback: 创建临时 textarea，始终挂到 body 上避免 Drawer/Modal 的 focus trap 干扰
   const textarea = document.createElement('textarea')
   textarea.value = text
-  // 放到当前活跃元素所在的容器中（兼容 Drawer/Modal 等 focus trap 场景）
-  const container = document.activeElement?.closest('.n-drawer-content, .n-modal, .n-dialog') || document.body
   textarea.style.position = 'fixed'
   textarea.style.left = '-9999px'
+  textarea.style.top = '-9999px'
   textarea.style.opacity = '0'
-  container.appendChild(textarea)
+  textarea.setAttribute('readonly', '')
+  document.body.appendChild(textarea)
+  // 临时移除 Drawer 的 aria-hidden，避免阻止 textarea 获取焦点
+  const drawers = document.querySelectorAll('.n-drawer-container[aria-hidden="true"]')
+  drawers.forEach(el => el.removeAttribute('aria-hidden'))
   textarea.focus()
-  textarea.select()
+  textarea.setSelectionRange(0, textarea.value.length)
+  let ok = false
   try {
-    document.execCommand('copy')
+    ok = document.execCommand('copy')
   } finally {
-    container.removeChild(textarea)
+    document.body.removeChild(textarea)
   }
+  if (!ok) throw new Error('execCommand copy failed')
 }

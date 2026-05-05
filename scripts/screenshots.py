@@ -16,9 +16,9 @@ async def main():
 
         pg = await context.new_page()
 
-        # 通过 ?token= 登录
+        # 先访问页面设置 localStorage 暗色主题
         await pg.goto(f'{BASE}/?token={TOKEN}', wait_until='domcontentloaded', timeout=15000)
-        await pg.wait_for_timeout(2000)
+        await pg.evaluate('localStorage.setItem("forks-theme", "dark")')
         await pg.evaluate('window.history.replaceState({}, "", "/")')
 
         # 首页
