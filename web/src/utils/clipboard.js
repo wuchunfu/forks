@@ -1,31 +1,35 @@
 /**
- * 复制文本到剪贴板（兼容 HTTP 环境）
- * navigator.clipboard 在非 HTTPS 非 localhost 环境下不可用，fallback 到 execCommand
+ * 复制文本到剪贴板（兼容 HTTP 环境和 Drawer/Modal 焦点陷阱）
  */
 export async function copyToClipboard(text) {
+  // 优先使用 Clipboard API（需要 HTTPS 或 localhost）
   if (navigator.clipboard && window.isSecureContext) {
-    await navigator.clipboard.writeText(text)
-    return
+    try {
+      await navigator.clipboard.writeText(text)
+      return
+    } catch {
+      // Clipboard API 失败，走 fallback
+    }
   }
-  // fallback: 创建临时 textarea，始终挂到 body 上避免 Drawer/Modal 的 focus trap 干扰
+
+  // fallback: 创建临时 textarea，放入焦点陷阱容器内避免被抢焦点
+  const container =
+    document.activeElement?.closest('.n-drawer-content, .n-modal, .n-dialog') ||
+    document.body
+
   const textarea = document.createElement('textarea')
   textarea.value = text
-  textarea.style.position = 'fixed'
-  textarea.style.left = '-9999px'
-  textarea.style.top = '-9999px'
-  textarea.style.opacity = '0'
+  textarea.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;'
   textarea.setAttribute('readonly', '')
-  document.body.appendChild(textarea)
-  // 临时移除 Drawer 的 aria-hidden，避免阻止 textarea 获取焦点
-  const drawers = document.querySelectorAll('.n-drawer-container[aria-hidden="true"]')
-  drawers.forEach(el => el.removeAttribute('aria-hidden'))
+  container.appendChild(textarea)
   textarea.focus()
   textarea.setSelectionRange(0, textarea.value.length)
+
   let ok = false
   try {
     ok = document.execCommand('copy')
   } finally {
-    document.body.removeChild(textarea)
+    container.removeChild(textarea)
   }
   if (!ok) throw new Error('execCommand copy failed')
 }
