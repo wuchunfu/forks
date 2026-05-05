@@ -1,5 +1,27 @@
 import request from '@/utils/request'
 
+// 版本级缓存：语言数据随版本固定，同版本不重复请求
+let cachedLanguagesPromise = null
+let cachedVersion = null
+
+async function getCachedLanguages() {
+  try {
+    const verRes = await request({ url: '/api/version', method: 'get' })
+    const currentVersion = verRes.data?.data?.version || 'dev'
+
+    if (cachedLanguagesPromise && cachedVersion === currentVersion) {
+      return cachedLanguagesPromise
+    }
+
+    cachedVersion = currentVersion
+    cachedLanguagesPromise = request({ url: '/api/trending/languages', method: 'get' })
+    return cachedLanguagesPromise
+  } catch {
+    // version 接口失败时仍请求（降级）
+    return request({ url: '/api/trending/languages', method: 'get' })
+  }
+}
+
 export function getTrending(params = {}) {
   return request({
     url: '/api/trending',
@@ -10,10 +32,7 @@ export function getTrending(params = {}) {
 }
 
 export function getTrendingLanguages() {
-  return request({
-    url: '/api/trending/languages',
-    method: 'get'
-  })
+  return getCachedLanguages()
 }
 
 export function getTrendingDates(params = {}) {
