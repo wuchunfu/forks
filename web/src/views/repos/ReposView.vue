@@ -59,6 +59,10 @@
             placeholder="作者"
             clearable
             filterable
+            remote
+            :loading="authorLoading"
+            :on-search="handleAuthorSearch"
+            @scroll="handleAuthorScroll"
             size="small"
             style="width: 140px"
             @update:value="handleAuthorFilter"
@@ -332,7 +336,7 @@ import { useRouter } from 'vue-router'
 import { useMessage, useDialog, NButton, NIcon, NSelect, NDropdown, NTag, NPagination, NSpace, NSpin } from 'naive-ui'
 import { Add, Close } from '@vicons/ionicons5'
 import { useReposStore } from '@/stores/repos'
-import { pullRepo, pullRepoSSE, toggleValid } from '@/api/repos'
+import { pullRepo, pullRepoSSE, toggleValid, getAuthors } from '@/api/repos'
 import AddRepoModal from '@/components/AddRepoModal.vue'
 import RepoDetailDrawer from '@/components/RepoDetailDrawer.vue'
 
@@ -389,13 +393,54 @@ const emptyDescription = computed(() => {
   return hasActiveFilters.value ? '没有找到符合条件的仓库' : '还没有添加任何仓库'
 })
 
-// 筛选选项
-const authorOptions = computed(() => {
-  return reposStore.uniqueAuthors.map(author => ({
-    label: author,
-    value: author
-  }))
-})
+// 作者下拉 - 远程搜索 + 滚动加载
+const authorOptions = ref([])
+const authorLoading = ref(false)
+const authorPage = ref(1)
+const authorTotal = ref(0)
+const authorSearch = ref('')
+const authorPageSize = 20
+
+async function fetchAuthorOptions(search = '', page = 1, append = false) {
+  authorLoading.value = true
+  try {
+    const params = { page, page_size: authorPageSize, sort_by: 'name', sort_order: 'asc' }
+    if (search) params.search = search
+    const res = await getAuthors(params)
+    const data = res.data?.data
+    if (data) {
+      const items = (data.list || []).map(a => ({ label: a.author, value: a.author }))
+      if (append) {
+        authorOptions.value = [...authorOptions.value, ...items]
+      } else {
+        authorOptions.value = items
+      }
+      authorTotal.value = data.total || 0
+      authorPage.value = page
+    }
+  } catch (e) {
+    console.error('加载作者选项失败:', e)
+  } finally {
+    authorLoading.value = false
+  }
+}
+
+let authorSearchTimer = null
+function handleAuthorSearch(query) {
+  clearTimeout(authorSearchTimer)
+  authorSearch.value = query
+  authorSearchTimer = setTimeout(() => {
+    fetchAuthorOptions(query, 1)
+  }, 300)
+}
+
+function handleAuthorScroll(e) {
+  const { scrollTop, scrollHeight, clientHeight } = e.target
+  if (scrollTop + clientHeight < scrollHeight - 10) return
+  if (authorLoading.value) return
+  if (authorOptions.value.length >= authorTotal.value) return
+  fetchAuthorOptions(authorSearch.value, authorPage.value + 1, true)
+}
 
 const statusOptions = [
   { label: '已克隆', value: 'cloned' },
@@ -776,14 +821,18 @@ onMounted(async () => {
   if (route.query.author) {
     selectedAuthor.value = route.query.author
     reposStore.setActiveFilter('author', route.query.author)
-    // 读取后立即清除 URL 参数，避免刷新页面残留
+    // 预选作者需在选项中
+    if (!authorOptions.value.find(o => o.value === route.query.author)) {
+      authorOptions.value.unshift({ label: route.query.author, value: route.query.author })
+    }
     router.replace({ path: '/repos' })
   }
 
   // 并行加载数据
   await Promise.all([
     reposStore.fetchRepos(),
-    reposStore.fetchStats()
+    reposStore.fetchStats(),
+    fetchAuthorOptions('', 1)
   ])
 })
 
