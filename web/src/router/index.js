@@ -32,9 +32,16 @@ const router = createRouter({
         },
         {
           path: 'settings',
-          name: 'settings',
           component: () => import('@/views/settings/SettingsView.vue'),
-          meta: { title: '系统设置', breadcrumb: [{ label: '系统设置' }] }
+          meta: { title: '系统设置' },
+          children: [
+            { path: '', redirect: { name: 'settings-proxy' } },
+            { path: 'proxy', name: 'settings-proxy', component: () => import('@/views/settings/SettingsProxy.vue'), meta: { title: '代理设置' } },
+            { path: 'token', name: 'settings-token', component: () => import('@/views/settings/SettingsToken.vue'), meta: { title: '令牌管理' } },
+            { path: 'trending', name: 'settings-trending', component: () => import('@/views/settings/SettingsTrending.vue'), meta: { title: '趋势同步' } },
+            { path: 'mcp', name: 'settings-mcp', component: () => import('@/views/settings/SettingsMCP.vue'), meta: { title: 'MCP' } },
+            { path: 'about', name: 'settings-about', component: () => import('@/views/settings/SettingsAbout.vue'), meta: { title: '关于' } },
+          ]
         },
         {
           path: 'tasks',

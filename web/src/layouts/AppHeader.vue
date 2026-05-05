@@ -112,9 +112,9 @@ const currentPageTitle = computed(() => {
     '/': '首页',
     '/authors': '作者',
     '/repos': '仓库',
-    '/settings': '设置',
     '/activities': '活动'
   }
+  if (route.path.startsWith('/settings')) return route.meta?.title || '设置'
   return titleMap[route.path] || route.meta?.title || '首页'
 })
 
@@ -148,6 +148,11 @@ const breadcrumbItems = computed(() => {
       'authors': '作者管理',
       'repos': '仓库管理',
       'settings': '系统设置',
+      'proxy': '代理设置',
+      'token': '令牌管理',
+      'trending': '趋势同步',
+      'mcp': 'MCP',
+      'about': '关于',
       'activities': '活动记录',
       'detail': '详情'
     }

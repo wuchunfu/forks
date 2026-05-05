@@ -90,7 +90,7 @@ const route = useRoute()
 
 // 设置页、任务页等不显示悬浮按钮
 const showFloatingButton = computed(() => {
-  return route.path !== '/settings'
+  return !route.path.startsWith('/settings')
 })
 
 // 侧边栏状态
