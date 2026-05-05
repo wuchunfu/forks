@@ -5,8 +5,9 @@ ENV GOPROXY=https://goproxy.cn,direct
 WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download
+ARG VERSION=dev
 COPY . .
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o forks .
+RUN CGO_ENABLED=0 go build -ldflags="-s -w -X github.com/cicbyte/forks/utils.Version=${VERSION}" -o forks .
 
 # ====== 运行镜像 ======
 FROM alpine:3.21

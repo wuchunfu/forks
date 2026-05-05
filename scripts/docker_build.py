@@ -44,8 +44,9 @@ def main():
     if rmi.returncode == 0:
         print(f"已清除旧镜像: {image}")
 
-    # 2. 构建新镜像
-    run(["docker", "build", "-t", image, "."], check=True)
+    # 2. 构建新镜像（注入版本号）
+    version = args.tag if args.tag != "latest" else "dev"
+    run(["docker", "build", "--build-arg", f"VERSION={version}", "-t", image, "."], check=True)
     print(f"构建完成: {image}")
 
     # 3. 导出

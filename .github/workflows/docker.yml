@@ -53,11 +53,12 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: |
+          VERSION=${GITHUB_REF_NAME#v}
           BINARY=forks
           if [ "$GOOS" = "windows" ]; then
             BINARY=forks.exe
           fi
-          go build -ldflags="-s -w" -o $BINARY .
+          go build -ldflags="-s -w -X github.com/cicbyte/forks/utils.Version=$VERSION" -o $BINARY .
           tar -czf forks_${GOOS}_${GOARCH}.tar.gz $BINARY
 
       - name: Upload artifact
