@@ -122,3 +122,4 @@ typings/
 msg.txt
 
 .reference/
+dist/

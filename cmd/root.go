@@ -214,6 +214,14 @@ func init() {
 }
 
 func Execute() {
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "version",
+		Short: "显示版本号",
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {},
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println(utils.Version)
+		},
+	})
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 	}
