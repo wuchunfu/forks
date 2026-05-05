@@ -155,57 +155,56 @@ func getRepos(c *gin.Context) {
 // getAuthors 获取作者列表
 func getAuthors(c *gin.Context) {
 	search := c.Query("search")
-	source := c.Query("source") // github, gitee
-	sortBy := c.DefaultQuery("sort_by", "repo_count") // repo_count, name
-	sortOrder := c.DefaultQuery("sort_order", "desc") // asc, desc
+	source := c.Query("source")
+	sortBy := c.DefaultQuery("sort_by", "repo_count")
+	sortOrder := c.DefaultQuery("sort_order", "desc")
 
-	// 构建查询 - 从 repos 表聚合作者信息
-	querySQL := `
-		SELECT
-			author,
-			source,
-			COUNT(*) as repo_count,
-			SUM(CASE WHEN is_cloned = 1 THEN 1 ELSE 0 END) as cloned_count,
-			MAX(created_at) as last_updated
-		FROM repos
-		WHERE 1=1
-	`
-
-	var args []interface{}
-
-	// 搜索条件
-	if search != "" {
-		querySQL += " AND author LIKE ?"
-		args = append(args, "%"+search+"%")
+	pageNum, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if pageNum < 1 {
+		pageNum = 1
+	}
+	pageSizeNum, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if pageSizeNum < 1 || pageSizeNum > 100 {
+		pageSizeNum = 20
 	}
 
-	// 平台筛选
+	whereSQL := " WHERE 1=1"
+	var args []interface{}
+
+	if search != "" {
+		whereSQL += " AND author LIKE ?"
+		args = append(args, "%"+search+"%")
+	}
 	if source != "" {
-		querySQL += " AND source = ?"
+		whereSQL += " AND source = ?"
 		args = append(args, source)
 	}
 
-	// 分组
-	querySQL += " GROUP BY author, source"
+	// 总数
+	countSQL := "SELECT COUNT(*) FROM (SELECT author, source FROM repos" + whereSQL + " GROUP BY author, source)"
+	var total int
+	common.Db.QueryRow(countSQL, args...).Scan(&total)
 
 	// 排序
-	orderClause := " ORDER BY "
+	orderCol := "repo_count"
 	if sortBy == "name" {
-		orderClause += "author"
-	} else {
-		orderClause += "repo_count"
+		orderCol = "author"
 	}
+	orderDir := "DESC"
 	if sortOrder == "asc" {
-		orderClause += " ASC"
-	} else {
-		orderClause += " DESC"
+		orderDir = "ASC"
 	}
-	querySQL += orderClause
 
-	log.Printf("🔍 [getAuthors] SQL: %s, args: %v", querySQL, args)
+	offset := (pageNum - 1) * pageSizeNum
+	querySQL := `SELECT author, source, COUNT(*) as repo_count,
+		SUM(CASE WHEN is_cloned = 1 THEN 1 ELSE 0 END) as cloned_count,
+		MAX(created_at) as last_updated
+		FROM repos` + whereSQL + ` GROUP BY author, source
+		ORDER BY ` + orderCol + ` ` + orderDir + `
+		LIMIT ? OFFSET ?`
 
-	// 查询数据
-	rows, err := common.Db.Query(querySQL, args...)
+	queryArgs := append(args, pageSizeNum, offset)
+	rows, err := common.Db.Query(querySQL, queryArgs...)
 	if err != nil {
 		c.JSON(500, gin.H{"code": 500, "message": "数据库查询失败: " + err.Error()})
 		return
@@ -214,35 +213,29 @@ func getAuthors(c *gin.Context) {
 
 	var authors []gin.H
 	for rows.Next() {
-		var author string
-		var source string
-		var repoCount int
-		var clonedCount int
-		var lastUpdated string
-
-		err := rows.Scan(&author, &source, &repoCount, &clonedCount, &lastUpdated)
-		if err != nil {
+		var author, src, lastUpdated string
+		var repoCount, clonedCount int
+		if err := rows.Scan(&author, &src, &repoCount, &clonedCount, &lastUpdated); err != nil {
 			continue
 		}
-
 		authors = append(authors, gin.H{
 			"author":       author,
-			"source":       source,
+			"source":       src,
 			"repo_count":   repoCount,
 			"cloned_count": clonedCount,
 			"last_updated": lastUpdated,
 		})
 	}
 
-	log.Printf("✅ [getAuthors] 返回 %d 个作者", len(authors))
-
 	c.JSON(200, gin.H{
-		"code": 0,
+		"code":    0,
+		"message": "success",
 		"data": gin.H{
 			"list":  authors,
-			"total": len(authors),
+			"total": total,
+			"page":  pageNum,
+			"page_size": pageSizeNum,
 		},
-		"message": "success",
 	})
 }
 

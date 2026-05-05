@@ -48,7 +48,7 @@
           clearable
           size="small"
           style="width: 110px"
-          @update:value="(v) => selectedSource = v"
+          @update:value="() => { currentPage = 1; loadAuthors() }"
         />
 
         <n-select
@@ -83,40 +83,53 @@
     </div>
 
     <!-- 作者卡片网格 -->
-    <div v-else-if="filteredAuthors.length > 0" class="authors-grid">
-      <div
-        v-for="author in filteredAuthors"
-        :key="author.author"
-        class="author-card"
-        @click="handleViewRepos(author)"
-      >
-        <!-- 平台角标 -->
-        <span
-          class="card-badge"
-          :class="`badge-${author.source || 'github'}`"
-        >{{ author.source === 'gitee' ? 'Gitee' : 'GitHub' }}</span>
+    <div v-else-if="authors.length > 0">
+      <div class="authors-grid">
+        <div
+          v-for="author in authors"
+          :key="author.author"
+          class="author-card"
+          @click="handleViewRepos(author)"
+        >
+          <!-- 平台角标 -->
+          <span
+            class="card-badge"
+            :class="`badge-${author.source || 'github'}`"
+          >{{ author.source === 'gitee' ? 'Gitee' : 'GitHub' }}</span>
 
-        <!-- 作者头像 -->
-        <div class="author-avatar">
-          <div class="avatar-placeholder">
-            {{ author.author.charAt(0).toUpperCase() }}
+          <!-- 作者头像 -->
+          <div class="author-avatar">
+            <div class="avatar-placeholder">
+              {{ author.author.charAt(0).toUpperCase() }}
+            </div>
           </div>
-        </div>
 
-        <!-- 作者信息 -->
-        <div class="author-info">
-          <div class="author-name">{{ author.author }}</div>
-          <div class="author-meta">
-            <span class="repo-count">{{ author.repo_count }} 个仓库</span>
-            <span v-if="author.cloned_count < author.repo_count" class="cloned-info">
-              (已克隆 {{ author.cloned_count }})
-            </span>
+          <!-- 作者信息 -->
+          <div class="author-info">
+            <div class="author-name">{{ author.author }}</div>
+            <div class="author-meta">
+              <span class="repo-count">{{ author.repo_count }} 个仓库</span>
+              <span v-if="author.cloned_count < author.repo_count" class="cloned-info">
+                已克隆 {{ author.cloned_count }}
+              </span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- 空状态 -->
+      <!-- 分页 -->
+      <div v-if="total > pageSize" class="pagination">
+        <n-pagination
+          v-model:page="currentPage"
+          :page-count="totalPages"
+          :page-size="pageSize"
+          show-size-picker
+          :page-sizes="[20, 40, 60, 100]"
+          @update:page="handlePageChange"
+          @update:page-size="handlePageSizeChange"
+        />
+      </div>
+    </div>
     <div v-else class="authors-empty">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -161,14 +174,12 @@
  */
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage, NSelect } from 'naive-ui'
-import { useReposStore } from '@/stores/repos'
+import { useMessage, NSelect, NPagination } from 'naive-ui'
 import { getAuthors } from '@/api/repos'
 import AddRepoModal from '@/components/AddRepoModal.vue'
 
 const router = useRouter()
 const message = useMessage()
-const reposStore = useReposStore()
 
 // 响应式数据
 const loading = ref(false)
@@ -177,20 +188,21 @@ const sortBy = ref('repo_count')
 const sortOrder = ref('desc')
 const showAddRepoModal = ref(false)
 const selectedSource = ref(null)
+const currentPage = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
 
 const sourceOptions = [
   { label: 'GitHub', value: 'github' },
   { label: 'Gitee', value: 'gitee' }
 ]
 
-// 作者数据（从 API 获取）
+// 作者数据（当前页）
 const authors = ref([])
 
-// 下拉菜单选项
 const sortByOptions = [
   { label: '按名称排序', value: 'name' },
   { label: '按仓库数排序', value: 'repo_count' },
-  { label: '按最近添加', value: 'recent' }
 ]
 
 const sortOrderOptions = [
@@ -199,60 +211,32 @@ const sortOrderOptions = [
 ]
 
 // 计算属性
-const totalAuthors = computed(() => authors.value.length)
+const totalAuthors = computed(() => total.value)
 
 const totalRepos = computed(() => {
   return authors.value.reduce((sum, author) => sum + author.repo_count, 0)
 })
 
-// 过滤和排序后的作者列表
-const filteredAuthors = computed(() => {
-  let result = [...authors.value]
-
-  // 搜索过滤
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    result = result.filter(author =>
-      author.author.toLowerCase().includes(query)
-    )
-  }
-
-  // 平台筛选
-  if (selectedSource.value) {
-    result = result.filter(author => author.source === selectedSource.value)
-  }
-
-  // 排序
-  result.sort((a, b) => {
-    let compareValue = 0
-
-    switch (sortBy.value) {
-      case 'name':
-        compareValue = a.author.localeCompare(b.author)
-        break
-      case 'repo_count':
-        compareValue = a.repo_count - b.repo_count
-        break
-      case 'recent':
-        compareValue = new Date(b.last_updated) - new Date(a.last_updated)
-        break
-    }
-
-    return sortOrder.value === 'asc' ? compareValue : -compareValue
-  })
-
-  return result
-})
+const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
 
 // 方法
 const loadAuthors = async () => {
   loading.value = true
   try {
-    const response = await getAuthors()
-    // axios 响应拦截器返回的是整个 response 对象
+    const params = {
+      page: currentPage.value,
+      page_size: pageSize.value,
+      sort_by: sortBy.value,
+      sort_order: sortOrder.value,
+    }
+    if (searchQuery.value) params.search = searchQuery.value
+    if (selectedSource.value) params.source = selectedSource.value
+
+    const response = await getAuthors(params)
     const res = response.data
     if (res.code === 0 && res.data) {
       authors.value = res.data.list || []
+      total.value = res.data.total || 0
     } else {
       message.error('加载作者列表失败')
     }
@@ -263,20 +247,38 @@ const loadAuthors = async () => {
   }
 }
 
+let searchTimer = null
 const handleSearch = () => {
-  // 搜索逻辑在 computed 中处理
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    currentPage.value = 1
+    loadAuthors()
+  }, 300)
 }
 
 const clearSearch = () => {
   searchQuery.value = ''
+  currentPage.value = 1
+  loadAuthors()
 }
 
 const handleSort = () => {
-  // 排序逻辑在 computed 中处理
+  currentPage.value = 1
+  loadAuthors()
+}
+
+const handlePageChange = (page) => {
+  currentPage.value = page
+  loadAuthors()
+}
+
+const handlePageSizeChange = (size) => {
+  pageSize.value = size
+  currentPage.value = 1
+  loadAuthors()
 }
 
 const handleViewRepos = (author) => {
-  // 跳转到仓库列表页面，并筛选该作者的仓库
   router.push({
     path: '/repos',
     query: { author: author.author }
@@ -459,11 +461,17 @@ onMounted(() => {
 
 .authors-loading {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: var(--space-4);
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1400px) {
+  .authors-loading {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
   .authors-loading {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -540,24 +548,30 @@ onMounted(() => {
 
 .authors-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: var(--space-4);
 }
 
 /* 响应式网格布局 */
 @media (max-width: 1400px) {
   .authors-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
 @media (max-width: 1024px) {
   .authors-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .authors-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 480px) {
   .authors-grid {
     grid-template-columns: 1fr;
   }
@@ -567,34 +581,26 @@ onMounted(() => {
   position: relative;
   background-color: var(--color-bg-card);
   border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-lg);
-  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-3);
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  text-align: center;
+  gap: var(--space-3);
+  overflow: hidden;
 }
 
 .author-card:hover {
   border-color: var(--color-primary);
   box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 .author-avatar {
-  width: 64px;
-  height: 64px;
-  margin-bottom: var(--space-3);
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
-}
-
-.avatar-image {
-  width: 100%;
-  height: 100%;
-  border-radius: var(--radius-full);
-  object-fit: cover;
 }
 
 .avatar-placeholder {
@@ -605,28 +611,31 @@ onMounted(() => {
   justify-content: center;
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-600) 100%);
   color: white;
-  font-size: 24px;
+  font-size: 15px;
   font-weight: var(--font-bold);
   border-radius: var(--radius-full);
 }
 
 .author-info {
   flex: 1;
-  width: 100%;
-  margin-bottom: var(--space-3);
+  min-width: 0;
 }
 
 .author-name {
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   font-weight: var(--font-semibold);
   color: var(--color-text-primary);
-  margin-bottom: var(--space-1);
-  word-break: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .author-meta {
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 /* 平台角标 */
@@ -634,11 +643,10 @@ onMounted(() => {
   position: absolute;
   top: 0;
   right: 0;
-  font-size: 10px;
-  padding: 2px 8px;
-  min-width: 46px;
+  font-size: 9px;
+  padding: 1px 6px;
   text-align: center;
-  border-radius: 0 var(--radius-lg) 0 var(--radius-md);
+  border-radius: 0 var(--radius-md) 0 var(--radius-sm);
   font-weight: var(--font-medium);
   line-height: 1.5;
   z-index: 1;
@@ -720,5 +728,15 @@ onMounted(() => {
 .add-repo-btn svg {
   width: 16px;
   height: 16px;
+}
+
+/* ============================================
+   PAGINATION - 分页
+   ============================================ */
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-6);
 }
 </style>

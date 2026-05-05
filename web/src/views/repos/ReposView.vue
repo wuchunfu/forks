@@ -374,7 +374,7 @@ const contextMenuOptions = computed(() => {
 
 // 分页
 const currentPage = ref(1)
-const pageSize = ref(20)
+const pageSize = ref(40)
 
 // 计算属性
 const paginatedRepos = computed(() => reposStore.filteredRepos)
