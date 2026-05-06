@@ -116,7 +116,7 @@ Forks includes a built-in Git Smart HTTP server. Once deployed, other machines o
 git clone http://<server-ip>:8080/git/github/author/repo.git
 
 # Recommended: use forks-cli (auto-fixes remote URL)
-forks clone http://<server-ip>:8080/git/github/author/repo.git
+forks-cli clone http://<server-ip>:8080/git/github/author/repo.git
 ```
 
 ## Docker Deployment
@@ -168,15 +168,55 @@ Authentication uses Bearer Token, same as the REST API.
 
 ### forks-cli
 
-Standalone CLI tool providing mirror-accelerated cloning, batch backup, and more. See [cicbyte/forks-cli](https://github.com/cicbyte/forks-cli).
+Standalone CLI tool providing mirror-accelerated cloning, batch backup, trending browsing, and more. See [cicbyte/forks-cli](https://github.com/cicbyte/forks-cli).
+
+**Install:**
 
 ```bash
-# Mirror-accelerated clone (auto-fixes remote URL)
-forks clone http://<server-ip>:8080/git/github/torvalds/linux.git
+# Go install
+go install github.com/cicbyte/forks-cli@latest
 
-# Batch backup
-forks backup --server http://<server-ip>:8080 --dir /data/backup
+# Or download binary from GitHub Releases
 ```
+
+**Initial Setup:**
+
+```bash
+forks-cli config set server http://<server-ip>:8080
+forks-cli config set token <your-token>    # If server has auth enabled
+```
+
+**Main Commands:**
+
+```bash
+# Mirror-accelerated clone (supports shorthand, original URL, mirror URL)
+forks-cli clone torvalds/linux
+forks-cli clone https://github.com/torvalds/linux
+forks-cli clone http://<server-ip>:8080/git/github/torvalds/linux.git
+
+# Batch backup (with concurrency and directory options)
+forks-cli backup -d /data/backup -c 10
+
+# Browse GitHub trending (with language and time range filters)
+forks-cli trending --language go --since weekly
+forks-cli trending --language python --spoken-language en --refresh
+
+# Open Web UI
+forks-cli website
+
+# Show version
+forks-cli version
+```
+
+**Global Options:**
+
+```bash
+# Output format: table (default), json, jsonl
+forks-cli trending --format json
+forks-cli backup --format jsonl
+```
+
+**Config Priority:** Environment variables > CLI flags > Config file (`~/.cicbyte/forks-cli/config/config.yaml`)
 
 ## Project Structure
 
