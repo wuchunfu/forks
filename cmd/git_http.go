@@ -22,7 +22,7 @@ import (
 
 // ====================== Git 镜像准备接口 ======================
 
-// prepareGitMirror 为 fclone 提供镜像准备服务
+// prepareGitMirror 为 CLI 提供镜像准备服务
 // POST /api/git/prepare
 // 请求体: { "source": "github", "author": "torvalds", "repo": "linux" }
 // 如果仓库已在数据库中且本地已缓存 → pull 更新后返回 ready
@@ -174,7 +174,7 @@ func prepareGitMirror(c *gin.Context) {
 
 		log.Printf("✅ [Prepare] pull 完成: %s", strings.TrimSpace(string(pullOutput)))
 		common.Db.Exec("UPDATE repos SET last_pulled_at = datetime('now', 'localtime') WHERE id = ?", repoID)
-		addActivityRecord("info", "fclone 更新", fmt.Sprintf("通过 fclone 更新仓库 %s/%s/%s", req.Source, req.Author, req.Repo), int64(repoID), req.Author+"/"+req.Repo)
+		addActivityRecord("info", "CLI 更新", fmt.Sprintf("通过 CLI 更新仓库 %s/%s/%s", req.Source, req.Author, req.Repo), int64(repoID), req.Author+"/"+req.Repo)
 		c.JSON(200, gin.H{
 			"code":    0,
 			"status":  "ready",
@@ -206,7 +206,7 @@ func prepareGitMirror(c *gin.Context) {
 	cloneOutput, cloneErr := cloneCmd.CombinedOutput()
 	if cloneErr != nil {
 		log.Printf("❌ [Prepare] 克隆失败: %v, %s", cloneErr, string(cloneOutput))
-		addActivityRecord("error", "fclone 克隆失败", fmt.Sprintf("克隆 %s/%s/%s 失败", req.Source, req.Author, req.Repo), 0, req.Author+"/"+req.Repo)
+		addActivityRecord("error", "CLI 克隆失败", fmt.Sprintf("克隆 %s/%s/%s 失败", req.Source, req.Author, req.Repo), 0, req.Author+"/"+req.Repo)
 		c.JSON(500, gin.H{
 			"code":    500,
 			"message": "克隆失败: " + strings.TrimSpace(string(cloneOutput)),
@@ -218,7 +218,7 @@ func prepareGitMirror(c *gin.Context) {
 	common.Db.Exec("UPDATE repos SET is_cloned = 1 WHERE id = ?", repoID)
 	common.Db.Exec("UPDATE repos SET last_pulled_at = datetime('now', 'localtime') WHERE id = ?", repoID)
 
-	addActivityRecord("success", "fclone 克隆", fmt.Sprintf("通过 fclone 自动注册并克隆仓库 %s/%s/%s", req.Source, req.Author, req.Repo), int64(repoID), req.Author+"/"+req.Repo)
+	addActivityRecord("success", "CLI 克隆", fmt.Sprintf("通过 CLI 自动注册并克隆仓库 %s/%s/%s", req.Source, req.Author, req.Repo), int64(repoID), req.Author+"/"+req.Repo)
 	log.Printf("✅ [Prepare] 克隆完成: %s", repoPath)
 	c.JSON(200, gin.H{
 		"code":    0,

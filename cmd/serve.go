@@ -427,7 +427,7 @@ func setupRoutes(r *gin.Engine) {
 		api.POST("/tasks/:id/cancel", cancelTask)
 		api.POST("/tasks/:id/retry", retryTask)
 
-		// Git 镜像准备接口（供 fclone 调用）
+		// Git 镜像准备接口（供 CLI 调用）
 		api.POST("/git/prepare", prepareGitMirror)
 	}
 

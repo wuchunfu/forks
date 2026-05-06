@@ -115,8 +115,8 @@ Forks includes a built-in Git Smart HTTP server. Once deployed, other machines o
 # Direct git clone (origin will point to mirror address)
 git clone http://<server-ip>:8080/git/github/author/repo.git
 
-# Recommended: use fclone (auto-fixes remote URL)
-fclone http://<server-ip>:8080/git/github/author/repo.git
+# Recommended: use forks-cli (auto-fixes remote URL)
+forks clone http://<server-ip>:8080/git/github/author/repo.git
 ```
 
 ## Docker Deployment
@@ -166,30 +166,17 @@ Authentication uses Bearer Token, same as the REST API.
 
 ## Companion Tools
 
-### fclone — Mirror Accelerated Cloning
+### forks-cli
 
-Standalone CLI tool in `fclone/`, zero dependencies. Automatically fixes the remote URL after cloning to point to the original repository.
-
-```bash
-cd fclone && go build -o fclone .
-fclone http://<server-ip>:8080/git/github/torvalds/linux.git
-fclone http://<server-ip>:8080/git/github/torvalds/linux.git my-linux  # Custom directory
-```
-
-### fbackup — Batch Backup
-
-Standalone CLI tool in `fbackup/`, concurrently backs up repositories from a Forks server to local storage.
+Standalone CLI tool providing mirror-accelerated cloning, batch backup, and more. See [cicbyte/forks-cli](https://github.com/cicbyte/forks-cli).
 
 ```bash
-cd fbackup && go build -o fbackup
-fbackup config server http://<server-ip>:8080
-fbackup config token xxx
-fbackup config dir /data/backup
-fbackup                    # Default: 5 concurrent
-fbackup -c 10              # Custom concurrency
-```
+# Mirror-accelerated clone (auto-fixes remote URL)
+forks clone http://<server-ip>:8080/git/github/torvalds/linux.git
 
-Copies over the LAN via Git HTTP interface. Existing repos get `git pull --ff-only`. Config file: `~/.fbackup.json`.
+# Batch backup
+forks backup --server http://<server-ip>:8080 --dir /data/backup
+```
 
 ## Project Structure
 
@@ -202,8 +189,6 @@ Copies over the LAN via Git HTTP interface. Existing repos get `git pull --ff-on
 ├── models/              # Data structure definitions
 ├── utils/               # Config, GitHub API, MCP service, utilities
 ├── assets/              # Embedded resource bridge
-├── fclone/              # Standalone CLI (mirror clone)
-├── fbackup/             # Standalone CLI (batch backup)
 └── web/                 # Vue 3 frontend
     └── src/
         ├── api/         # API call wrappers

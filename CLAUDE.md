@@ -86,21 +86,9 @@ docker compose up -d
 
 环境变量：`FORKS_PORT`、`FORKS_ADDRESS`、`FORKS_HOME`、`FORKS_REPO_PATH`、`TZ`
 
-## fbackup 工具
+## CLI 工具
 
-`fbackup/` 是独立的批量备份工具，从 Forks 服务端读取仓库列表并备份到本地。
-
-```bash
-cd fbackup && go build -o fbackup
-
-fbackup config server http://<server-ip>:8080     # 配置服务端
-fbackup config token xxx                          # 配置 token
-fbackup config dir /data/backup                   # 配置备份目录
-fbackup                                           # 执行备份（默认 5 并发）
-fbackup -c 10                                     # 10 并发
-```
-
-配置文件 `~/.fbackup.json`，通过服务端 Git HTTP 接口（`/git/...`）从局域网复制仓库，已存在的执行 `git pull --ff-only`。
+配套 CLI 已独立到 [cicbyte/forks-cli](https://github.com/cicbyte/forks-cli)，提供镜像加速克隆、批量备份等功能。
 
 ### API 结构
 
