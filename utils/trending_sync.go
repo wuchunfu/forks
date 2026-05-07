@@ -129,8 +129,12 @@ func RunSyncTasks() error {
 		successCount++
 	}
 
-	cfg.LastSyncDate = today
-	_ = SaveSyncConfig(cfg)
+	if successCount > 0 {
+		cfg.LastSyncDate = today
+		_ = SaveSyncConfig(cfg)
+	} else {
+		return fmt.Errorf("所有同步任务失败 (0/%d)", len(cfg.Tasks))
+	}
 
 	log.Printf("[Trending 同步] 完成: %d/%d 成功", successCount, len(cfg.Tasks))
 	return nil
@@ -146,6 +150,8 @@ func IsSyncRunning() bool {
 // StartSyncScheduler 启动定时同步调度器
 func StartSyncScheduler() {
 	go func() {
+		log.Printf("[Trending 调度] 调度器已启动，当前时间 %s", time.Now().Format("2006-01-02 15:04:05 MST"))
+
 		// 启动时检查：如果今天还没同步且已过 sync_time，立即执行
 		if err := checkAndRunOnStartup(); err != nil {
 			log.Printf("[Trending 调度] 启动检查: %v", err)
@@ -157,7 +163,11 @@ func StartSyncScheduler() {
 
 		for range ticker.C {
 			cfg, err := LoadSyncConfig()
-			if err != nil || !cfg.Enabled || len(cfg.Tasks) == 0 {
+			if err != nil {
+				log.Printf("[Trending 调度] 读取配置失败: %v", err)
+				continue
+			}
+			if !cfg.Enabled || len(cfg.Tasks) == 0 {
 				continue
 			}
 
@@ -169,7 +179,7 @@ func StartSyncScheduler() {
 
 			syncHour, syncMin := parseSyncTime(cfg.SyncTime)
 			if now.Hour() == syncHour && now.Minute() == syncMin {
-				log.Printf("[Trending 调度] 到达同步时间 %s，开始执行", cfg.SyncTime)
+				log.Printf("[Trending 调度] 到达同步时间 %s，开始执行 (当前 %s)", cfg.SyncTime, now.Format("15:04:05"))
 				if err := RunSyncTasks(); err != nil {
 					log.Printf("[Trending 调度] 执行失败: %v", err)
 				}

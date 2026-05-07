@@ -12,7 +12,7 @@ RUN CGO_ENABLED=0 go build -ldflags="-s -w -X github.com/cicbyte/forks/utils.Ver
 # ====== 运行镜像 ======
 FROM alpine:3.21
 
-RUN apk add --no-cache git ca-certificates && \
+RUN apk add --no-cache git ca-certificates tzdata && \
     git config --global --add safe.directory '*'
 WORKDIR /app
 COPY --from=backend /build/forks /app/forks
